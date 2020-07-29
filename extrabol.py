@@ -15,7 +15,7 @@ def read_in_photometry(filename):
     photometry_data = np.loadtxt(filename,dtype=str)
 
     phases = np.asarray(photometry_data[:,0],dtype=float)
-
+    errs = np.asarray(photometry_data[:,2],dtype=float)
     index = SvoFps.get_filter_index()
     filterIDs = np.asarray(index['filterID'].data,dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data,dtype=float)
@@ -41,16 +41,18 @@ def read_in_photometry(filename):
     
         flux = 10.** (mag / -2.5) * zpts[-1]
         #I'm calling ths flux..but I'm going to do it in log flux space
-        flux = np.log10(flux) - np.log10(zpts[-1])
+        flux = 2.5 * (np.log10(flux) - np.log10(3631.00))
         fluxes.append(flux)
 
-    errs = np.asarray([0.05] * len(phases))
-    wv_effs = np.asarray(wv_effs) - np.mean(wv_effs)
-    fluxes = np.asarray(fluxes) - np.min(fluxes) + 1.0
+
+    wv_corr = np.mean(wv_effs)
+    flux_corr = np.min(fluxes) - 1.0
+    wv_effs = np.asarray(wv_effs) - wv_corr
+    fluxes = np.asarray(fluxes) - flux_corr
     phases = np.asarray(phases)
     lc = np.vstack((phases,fluxes,wv_effs/1000.,errs,width_effs))
 
-    return lc
+    return lc,wv_corr,flux_corr
 
 def interpolate(lc):
     '''
@@ -90,27 +92,11 @@ def interpolate(lc):
     pred, pred_var = gp.predict(lc[:,1], x_pred, return_var=True)
     for jj in np.arange(nfilts):
         gind = np.where(np.abs(x_pred[:, 1]-ufilts[jj])<epsilon)[0]
-        print(jj,pred[gind],lc[jj,2])
         dense_fluxes[:, int(jj)] = pred[gind]
         dense_errs[:, int(jj)] = np.sqrt(pred_var[gind])
     dense_lc = np.dstack((dense_fluxes, dense_errs))
     
-    colors = ['blue','red','green','yellow']
-    gind = np.argsort(lc[:,0])
-    for jj in np.arange(nfilts):
-        plt.plot(lc[gind,0],dense_lc[gind,jj,0],color=colors[jj])
-        plt.fill_between(lc[gind,0],dense_lc[gind,jj,0]-dense_lc[gind,jj,1],
-                    dense_lc[gind,jj,0]+dense_lc[gind,jj,1],
-                    color=colors[jj],alpha=0.2)
-
-
-    plt.plot(lc[gind,0],lc[gind,1],'ko')
-    plt.title('Gaia16apd')
-    plt.xlabel('Phase')
-    plt.ylabel('Mag')
-    plt.show()
-
-    return 0
+    return dense_lc
 
 
 def fit_bb(dense_lc):
@@ -125,9 +111,29 @@ def make_outputs(bb_param):
     '''
 
 
+
+
 def main():
-    lc = read_in_photometry('./example/Gaia16apd.dat')
-    interpolate(lc)
+    lc,wv_corr,flux_corr = read_in_photometry('./example/Gaia16apd.dat')
+    dense_lc = interpolate(lc)
+    lc = lc.T
+
+    dense_lc[:,:,0] += flux_corr # This is now in AB mags
+
+    #This code doesn't work, just test
+    colors = ['blue','red','green','yellow']
+    gind = np.argsort(lc[:,0])
+    for jj in np.arange(4):
+        plt.plot(lc[gind,0],dense_lc[gind,jj,0],color=colors[jj])
+        plt.fill_between(lc[gind,0],dense_lc[gind,jj,0]-dense_lc[gind,jj,1],
+                    dense_lc[gind,jj,0]+dense_lc[gind,jj,1],
+                    color=colors[jj],alpha=0.2)
+
+    plt.plot(lc[gind,0],lc[gind,1] + flux_corr,'ko')
+    plt.title('Gaia16apd')
+    plt.xlabel('MJD')
+    plt.ylabel('Negative Mag')
+    plt.show()
 
 if __name__ == "__main__":
     main()
