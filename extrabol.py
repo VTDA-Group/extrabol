@@ -233,6 +233,18 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
     plt.clf()
     return 1
 
+def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
+    plt.plot(lc[:,0],bol_lum,'ko')
+    plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none',color='k')
+
+    plt.title(snname)
+    plt.xlabel('Time (Days)')
+    plt.ylabel('Bolometric Luminosity')
+    plt.yscale('log')
+    plt.savefig(outdir+snname+'_bb_bol.png')
+    plt.clf()
+    return 1
+
 def main():
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', type=str, help='Give name of SN file')
@@ -281,23 +293,15 @@ def main():
 
     Tarr,Rarr,Terr_arr,Rerr_arr = fit_bb(dense_lc,wvs)
 
-    if args.plot:
-        plot_gp(lc,dense_lc,snname,flux_corr,args.outdir)
-        plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
-
     bol_lum = 4. * np.pi * Rarr **2 * sigsb * Tarr**4
     bol_err = 4. * np.pi * sigsb * np.sqrt(\
                 (2. * Rarr * Tarr**4 * Rerr_arr)**2 + \
                 (4. * Tarr**3 * Rarr**2 * Terr_arr)**2)
-    plt.plot(lc[:,0],bol_lum,'o')
-    plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none')
 
-    plt.title('Gaia16apd')
-    plt.xlabel('MJD')
-    plt.ylabel('Bolometric Luminosity')
-    plt.yscale('log')
-    plt.show()
-
+    if args.plot:
+        plot_gp(lc,dense_lc,snname,flux_corr,args.outdir)
+        plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
+        plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir)
 
 if __name__ == "__main__":
     main()
