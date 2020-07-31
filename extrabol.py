@@ -10,6 +10,8 @@ from astropy.cosmology import Planck13 as cosmo
 from astropy.cosmology import z_at_value
 from astropy import units as u
 import os 
+from astropy.table import QTable
+from astropy.io import ascii
 
 epsilon = 0.0001
 c = 2.99792458E10
@@ -56,7 +58,7 @@ def bbody(lam,T,R):
 
     return Radiance
 
-def read_in_photometry(filename, dm):
+def read_in_photometry(filename, dm, z):
     '''
     Read in SN file
     '''
@@ -72,10 +74,12 @@ def read_in_photometry(filename, dm):
 
     wv_effs = []
     width_effs = []
+    my_filters = []
     for ufilt in photometry_data[:,3]:
         gind = np.where(filterIDs==ufilt)[0]
         wv_effs.append(wavelengthEffs[gind][0])
-        width_effs.append(widthEffs[gind][0])    
+        width_effs.append(widthEffs[gind][0])   
+        my_filters.append(ufilt) 
 
     zpts = []
     fluxes = []
@@ -87,20 +91,20 @@ def read_in_photometry(filename, dm):
             gind = np.where(filterIDs==datapoint[3])
             zpts.append(float(zpts_all[gind[0]][0]))
     
-        flux = 10.** (mag / -2.5) * zpts[-1]
+        flux = 10.** (mag / -2.5) * zpts[-1] * (1.+z)
         #I'm calling ths flux..but I'm going to do it in log flux space
         flux = 2.5 * (np.log10(flux) - np.log10(3631.00))
         fluxes.append(flux)
 
 
-    wv_corr = np.mean(wv_effs)
+    wv_corr = np.mean(wv_effs/(1.+z))
     flux_corr = np.min(fluxes) - 1.0
     wv_effs = np.asarray(wv_effs) - wv_corr
     fluxes = np.asarray(fluxes) - flux_corr
     phases = np.asarray(phases)
     lc = np.vstack((phases,fluxes,wv_effs/1000.,errs,width_effs))
 
-    return lc,wv_corr,flux_corr
+    return lc,wv_corr,flux_corr, my_filters
 
 def interpolate(lc):
     '''
@@ -234,13 +238,13 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
     return 1
 
 def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
-    plt.plot(lc[:,0],bol_lum,'ko')
-    plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none',color='k')
+    plt.plot(lc[:,0],np.log10(bol_lum),'ko')
+    #plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none',color='k')
 
     plt.title(snname)
     plt.xlabel('Time (Days)')
     plt.ylabel('Bolometric Luminosity')
-    plt.yscale('log')
+    #plt.yscale('log')
     plt.savefig(outdir+snname+'_bb_bol.png')
     plt.clf()
     return 1
@@ -260,6 +264,11 @@ def main():
                     type=bool, default=True)
     parser.add_argument("--outdir", help="Output directory",dest='outdir',
                     type=str, default='./products/')
+    parser.add_argument("--ebv", help="MWebv",dest='ebv',
+                    type=float, default=0.0)
+    parser.add_argument("--hostebv", help="Host B-V",dest='hostebv',
+                    type=float, default=0.0)
+    
     args = parser.parse_args()
 
     if (args.redshift != 0) | (args.distance != 1e-5) | (args.dm != 0):
@@ -272,7 +281,7 @@ def main():
         else:
             args.redshift = z_at_value(cosmo.distmod,args.dm * u.mag)
             args.distance = cosmo.luminosity_distance(args.redshift).value
-    elif verbose:
+    elif args.verbose:
         print('Assuming absolute magnitudes.')
 
     if args.outdir[-1] != '/':
@@ -283,7 +292,7 @@ def main():
 
     snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
 
-    lc,wv_corr,flux_corr = read_in_photometry(args.snfile,args.dm)
+    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift)
     dense_lc = interpolate(lc)
     lc = lc.T
     wvs = np.unique(lc[:,2]) * 1000.0 + wv_corr
@@ -299,9 +308,28 @@ def main():
                 (4. * Tarr**3 * Rarr**2 * Terr_arr)**2)
 
     if args.plot:
+        if args.verbose:
+            print('Making plots in '+args.outdir)
         plot_gp(lc,dense_lc,snname,flux_corr,args.outdir)
         plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
         plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir)
 
+    #Final printout
+    dense_lc = np.reshape(dense_lc,(len(dense_lc),-1))
+    tabledata = np.stack((Tarr/1e3,Terr_arr/1e3,Rarr/1e15,Rerr_arr/1e15)).T
+    tabledata = np.hstack((-dense_lc,tabledata)).T
+
+    ufilts = np.unique(my_filters)
+    table_header = []
+    for filt in ufilts:
+        table_header.append(filt)
+        table_header.append(filt+'_err')
+    table_header.extend(['Temp./1e3 (K)','Temp. Err.','Radius/1e15 (cm)','Radius Err.'])
+    table = QTable([*tabledata],
+        names = {(*table_header)},
+                meta={'name': 'first table'})
+    import sys
+    format_dict = {head:'%0.3f' for head in table_header}
+    ascii.write(table, args.outdir+snname+'.txt', formats=format_dict)
 if __name__ == "__main__":
     main()
