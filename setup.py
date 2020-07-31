@@ -9,7 +9,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as readme_file:
 
 setuptools.setup(
     name="extrabol", # Replace with your own username
-    version="0.0.5",
+    version="0.0.10",
     author="V. Ashley Villar",
     author_email="vav2110@columbia.edu",
     description="Estimate SN bolometric light curves",
@@ -22,10 +22,9 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
-    entry_points={
-        'console_scripts': [
-            'extrabol = extrabol.extrabol:main'
-        ],
-        }
+    entry_points = {
+            'console_scripts': [
+                    'extrabol = extrabol.extrabol:main',
+                ]},
+    python_requires='>=3.6'
 )
