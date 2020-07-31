@@ -9,6 +9,11 @@ Install with pip:
 pip install extrabol
 ```
 
+Example input:
+
 ```python
 extrabol ./example/Gaia16apd.dat --dm 38.38 --verbose
 ```
+
+
+Note that filters must be specified by their [SVO](http://svo2.cab.inta-csic.es/svo/theory/fps3/) ID.
