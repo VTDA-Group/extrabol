@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="extrabol", # Replace with your own username
-    version="0.0.3",
+    version="0.0.4",
     author="V. Ashley Villar",
     author_email="vav2110@columbia.edu",
     description="Estimate SN bolometric light curves",
