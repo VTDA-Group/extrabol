@@ -12,55 +12,65 @@ from astropy import units as u
 import os 
 from astropy.table import QTable
 from astropy.io import ascii
+import matplotlib.cm as cm
+
 
 epsilon = 0.0001
 c = 2.99792458E10
 sigsb = 5.6704e-5 #erg / cm^2 / s / K^4
+h = 6.62607E-27
+ang_to_cm = 1e-8
+k_B = 1.38064852E-16 # cm^2 * g / s^2 / K
 
-# STOLEN FROM MATT
 def bbody(lam,T,R):
     '''
-    Calculate the corresponding blackbody radiance for a set
-    of wavelengths given a temperature and radiance.
+    Calculate BB L_lam (adapted from superbol, Nicholl, M. 2018, RNAAS)
+
     Parameters
-    ---------------
-    lam: Reference wavelengths in Angstroms
-    T:   Temperature in Kelvin
-    R:   Radius in cm
+    ----------
+    lam : float
+        Reference wavelengths in Angstroms
+    T : float
+        Temperature in Kelvin
+    R : float
+        Radius in cm
+
     Output
-    ---------------
-    Spectral radiance in units of erg/s/Angstrom
-    (calculation and constants checked by Sebastian Gomez)
+    ------
+    L_lam in erg/s/cm
     '''
 
-    #R = R * 1e15 #scale for code
-    #T = T * 1e4 #scale for code
-
-    # Planck Constant in cm^2 * g / s
-    h = 6.62607E-27
-
-
-    # Convert wavelength to cm
-    lam_cm = lam * 1E-8
-
-    # Boltzmann Constant in cm^2 * g / s^2 / K
-    k_B = 1.38064852E-16
-
-    # Calculate Radiance B_lam, in units of (erg / s) / cm ^ 2 / cm
+    lam_cm = lam * ang_to_cm
     exponential = (h * c) / (lam_cm * k_B * T)
-    B_lam = ((2. * np.pi * h * c ** 2) / (lam_cm ** 5)) / (np.exp(exponential) - 1.)
+    blam = ((2. * np.pi * h * c ** 2) / (lam_cm ** 5)) / (np.exp(exponential) - 1.)
+    area = 4. * np.pi * R**2
+    lum = blam * area
 
-    # Multiply by the surface area
-    A = 4. * np.pi * R**2
-
-    # Output radiance in units of (erg / s) / cm
-    Radiance = B_lam * A
-
-    return Radiance
+    return lum
 
 def read_in_photometry(filename, dm, z):
     '''
     Read in SN file
+
+    Parameters
+    ----------
+    filename : string
+        Input file name
+    dm : float
+        Distance modulus
+    z : float
+        redshift
+
+    Output
+    ------
+    lc : numpy.array
+        Light curve array
+    wv_corr : float
+        Mean of wavelengths, used in GP pre-processing
+    flux_corr : float
+        Flux correction, used in GP pre-processing
+    my_filters : list
+        List of filter names
     '''
     photometry_data = np.loadtxt(filename,dtype=str)
 
@@ -108,13 +118,23 @@ def read_in_photometry(filename, dm, z):
 
 def interpolate(lc):
     '''
-    Interpolate using 2D GP
+    Interpolate the LC using a 2D Gaussian Process (GP)
+
+    Parameters
+    ----------
+    lc : numpy.array
+        LC array
+
+    Output
+    ------
+    dense_lc : numpy.array
+        GP-interpolated LC and errors
     '''
     lc = lc.T
 
     times = lc[:,0]
     filters = lc[:,2]
-    stacked_data = np.vstack([times, filters]).T#get everything but width eff..hacky
+    stacked_data = np.vstack([times, filters]).T
     ufilts = np.unique(lc[:,2])
     nfilts = len(ufilts)
     x_pred = np.zeros((len(lc)*nfilts, 2))
@@ -154,12 +174,27 @@ def interpolate(lc):
 
 def fit_bb(dense_lc,wvs):
     '''
-    Fit each interpolate point to a BB, taking into account GP error
+    Fit a series of BBs to the GP LC
+    Adapted from superbol, Nicholl, M. 2018, RNAAS)
+
+    Parameters
+    ----------
+    dense_lc : numpy.array
+        GP-interpolated LC
+    wvs : numpy.array
+        Reference wavelengths in Ang
+
+    Output
+    ------
+    T_arr : numpy.array
+        BB temperature array (K)
+    R_arr : numpy.array
+        BB radius array (cm)
+    Terr_arr : numpy.array
+        BB radius error array (K)
+    Rerr_arr : numpy.array
+        BB temperature error array (cm)
     '''
-
-    #STOLEN FROM MATT!!!
-    # Fit blackbody to SED (the one that is not padded with zeros)
-
     T_arr = np.zeros(len(dense_lc))
     R_arr = np.zeros(len(dense_lc))
     Terr_arr = np.zeros(len(dense_lc))
@@ -173,8 +208,8 @@ def fit_bb(dense_lc,wvs):
         fnu_err = np.abs(0.921034 * 10.**(0.4 * datapoint[:,0] - 19.44)) * \
                 ferr * 4. * np.pi * (3.086e19)**2
 
-        flam = fnu * c / (wvs * 1e-8)**2 
-        flam_err = fnu_err * c / (wvs * 1e-8)**2
+        flam = fnu * c / (wvs * ang_to_cm)**2 
+        flam_err = fnu_err * c / (wvs * ang_to_cm)**2
 
         try:
             BBparams, covar = curve_fit(bbody,wvs,flam,
@@ -197,30 +232,80 @@ def fit_bb(dense_lc,wvs):
 
     return T_arr,R_arr,Terr_arr,Rerr_arr
 
-def plot_gp(lc, dense_lc, snname, flux_corr, outdir):
+def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, outdir):
     '''
-    Make nice outputs
+    Plot the GP-interpolate LC and save
+
+    Parameters
+    ----------
+    lc : numpy.array
+        Original LC data
+    dense_lc : numpy.array
+        GP-interpolated LC
+    snname : string
+        SN Name
+    flux_corr : float
+        Flux correction factor for GP
+    my_filters : list
+        List of filters
+    wvs : numpy.array
+        List of central wavelengths, for colors
+    outdir : string
+        Output directory
+
+    Output
+    ------
     '''
 
-    colors = ['blue','red','green','yellow','purple','cyan']
+    cm = plt.get_cmap('rainbow') 
+    wv_colors = (wvs - np.min(wvs)) / (np.max(wvs) - np.min(wvs))
+
     gind = np.argsort(lc[:,0])
     for jj in np.arange(6):
-        plt.plot(lc[gind,0],dense_lc[gind,jj,0],color=colors[jj])
-        plt.fill_between(lc[gind,0],dense_lc[gind,jj,0]-dense_lc[gind,jj,1],
-                    dense_lc[gind,jj,0]+dense_lc[gind,jj,1],
-                    color=colors[jj],alpha=0.2)
+        plt.plot(lc[gind,0],-dense_lc[gind,jj,0],color=cm(wv_colors[jj]),
+                label=my_filters[jj].split('/')[-1])
+        plt.fill_between(lc[gind,0],-dense_lc[gind,jj,0]-dense_lc[gind,jj,1],
+                    -dense_lc[gind,jj,0]+dense_lc[gind,jj,1],
+                    color=cm(wv_colors[jj]),alpha=0.2)
 
     for i,filt in enumerate(np.unique(lc[:,2])):
         gind = np.where(lc[:,2]==filt)
-        plt.plot(lc[gind,0],lc[gind,1] + flux_corr,'o',color=colors[i])
+        plt.plot(lc[gind,0],-(lc[gind,1] + flux_corr),'o',
+                color=cm(wv_colors[i]))
     plt.title(snname)
+    plt.legend()
     plt.xlabel('Time')
-    plt.ylabel('Negative Absolute Magnitudes')
+    plt.ylabel('Absolute Magnitudes')
+    # Uhg, magnitudes are the worst.
+    plt.gca().invert_yaxis()
     plt.savefig(outdir+snname+'_gp.png')
     plt.clf()
     return 1
 
 def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
+    '''
+    Plot the BB temperature and radius as a function of time
+
+    Parameters
+    ----------
+    lc : numpy.array
+        Original LC data
+    T_arr : numpy.array
+        BB temperature array (K)
+    R_arr : numpy.array
+        BB radius array (cm)
+    Terr_arr : numpy.array
+        BB radius error array (K)
+    Rerr_arr : numpy.array
+        BB temperature error array (cm)
+    snname : string
+        SN Name
+    outdir : string
+        Output directory
+
+    Output
+    ------
+    '''
     fig,axarr = plt.subplots(2,1,sharex=True)
     axarr[0].plot(lc[:,0],Tarr/1.e3,'ko')
     axarr[0].errorbar(lc[:,0],Tarr/1.e3,yerr=Terr_arr/1.e3,fmt='none',color='k')
@@ -238,15 +323,78 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
     return 1
 
 def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
-    plt.plot(lc[:,0],np.log10(bol_lum),'ko')
-    #plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none',color='k')
+    '''
+    Plot the BB bolometric luminosity as a function of time
+
+    Parameters
+    ----------
+    lc : numpy.array
+        Original LC data
+    bol_lum : numpy.array
+        BB bolometric luminosity (erg/s)
+    bol_err : numpy.array
+        BB bolometric luminosity error (erg/s)
+    snname : string
+        SN Name
+    outdir : string
+        Output directory
+
+    Output
+    ------
+    '''
+    plt.plot(lc[:,0],bol_lum,'ko')
+    plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none',color='k')
 
     plt.title(snname)
     plt.xlabel('Time (Days)')
     plt.ylabel('Bolometric Luminosity')
-    #plt.yscale('log')
+    plt.yscale('log')
     plt.savefig(outdir+snname+'_bb_bol.png')
     plt.clf()
+    return 1
+
+def write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
+                snname,outdir):
+    '''
+    Write out the interpolated LC and BB information
+
+    Parameters
+    ----------
+    dense_lc : numpy.array
+        GP-interpolated LC
+    T_arr : numpy.array
+        BB temperature array (K)
+    Terr_arr : numpy.array
+        BB radius error array (K)
+    R_arr : numpy.array
+        BB radius array (cm)
+    Rerr_arr : numpy.array
+        BB temperature error array (cm)
+    my_filters : list
+        List of filter names
+    snname : string
+        SN Name
+    outdir : string
+        Output directory
+
+    Output
+    ------
+    '''
+    dense_lc = np.reshape(dense_lc,(len(dense_lc),-1))
+    tabledata = np.stack((Tarr/1e3,Terr_arr/1e3,Rarr/1e15,Rerr_arr/1e15)).T
+    tabledata = np.hstack((-dense_lc,tabledata)).T
+
+    ufilts = np.unique(my_filters)
+    table_header = []
+    for filt in ufilts:
+        table_header.append(filt)
+        table_header.append(filt+'_err')
+    table_header.extend(['Temp./1e3 (K)','Temp. Err.','Radius/1e15 (cm)','Radius Err.'])
+    table = QTable([*tabledata],
+        names = {(*table_header)},
+                meta={'name': 'first table'})
+    format_dict = {head:'%0.3f' for head in table_header}
+    ascii.write(table, outdir+snname+'.txt', formats=format_dict, overwrite=True)
     return 1
 
 def main():
@@ -295,7 +443,11 @@ def main():
     lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift)
     dense_lc = interpolate(lc)
     lc = lc.T
-    wvs = np.unique(lc[:,2]) * 1000.0 + wv_corr
+
+    wvs,wvind = np.unique(lc[:,2],return_index=True)
+    wvs = wvs * 1000.0 + wv_corr
+    my_filters = np.asarray(my_filters)
+    ufilts = my_filters[wvind]
 
 
     dense_lc[:,:,0] += flux_corr # This is now in AB mags
@@ -310,26 +462,15 @@ def main():
     if args.plot:
         if args.verbose:
             print('Making plots in '+args.outdir)
-        plot_gp(lc,dense_lc,snname,flux_corr,args.outdir)
+        plot_gp(lc,dense_lc,snname,flux_corr,ufilts,wvs,args.outdir)
         plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
         plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir)
 
-    #Final printout
-    dense_lc = np.reshape(dense_lc,(len(dense_lc),-1))
-    tabledata = np.stack((Tarr/1e3,Terr_arr/1e3,Rarr/1e15,Rerr_arr/1e15)).T
-    tabledata = np.hstack((-dense_lc,tabledata)).T
+    if args.verbose:
+        print('Writing output to '+args.outdir)
+    write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
+                snname,args.outdir)
 
-    ufilts = np.unique(my_filters)
-    table_header = []
-    for filt in ufilts:
-        table_header.append(filt)
-        table_header.append(filt+'_err')
-    table_header.extend(['Temp./1e3 (K)','Temp. Err.','Radius/1e15 (cm)','Radius Err.'])
-    table = QTable([*tabledata],
-        names = {(*table_header)},
-                meta={'name': 'first table'})
-    import sys
-    format_dict = {head:'%0.3f' for head in table_header}
-    ascii.write(table, args.outdir+snname+'.txt', formats=format_dict)
+
 if __name__ == "__main__":
     main()
