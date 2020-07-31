@@ -5,9 +5,13 @@ from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
 import george
 from scipy.optimize import minimize, curve_fit
+import argparse
+from astropy.cosmology import Planck13 as cosmo
+from astropy.cosmology import z_at_value
+from astropy import units as u
+import os 
 
 epsilon = 0.0001
-DM = 38.38 # HARD CODING CAUSE LAZY
 c = 2.99792458E10
 sigsb = 5.6704e-5 #erg / cm^2 / s / K^4
 
@@ -52,7 +56,7 @@ def bbody(lam,T,R):
 
     return Radiance
 
-def read_in_photometry(filename):
+def read_in_photometry(filename, dm):
     '''
     Read in SN file
     '''
@@ -76,7 +80,7 @@ def read_in_photometry(filename):
     zpts = []
     fluxes = []
     for datapoint in photometry_data:
-        mag = float(datapoint[1]) - DM
+        mag = float(datapoint[1]) - dm
         if datapoint[-1] == 'AB':
             zpts.append(3631.00)
         else:
@@ -154,23 +158,23 @@ def fit_bb(dense_lc,wvs):
 
     T_arr = np.zeros(len(dense_lc))
     R_arr = np.zeros(len(dense_lc))
+    Terr_arr = np.zeros(len(dense_lc))
+    Rerr_arr = np.zeros(len(dense_lc))
+
     for i,datapoint in enumerate(dense_lc):
 
         fnu = 10.**((-datapoint[:,0] + 48.6)/-2.5)
-        fnuplus = 10.**((-datapoint[:,0] + datapoint[:,1] + 48.6)/-2.5) 
+        ferr = datapoint[:,1]
         fnu = fnu * 4. * np.pi * (3.086e19)**2 #LAZZYYYY assumption of 10 kpc
-        fnuplus = fnuplus * 4. * np.pi * (3.086e19)**2
+        fnu_err = np.abs(0.921034 * 10.**(0.4 * datapoint[:,0] - 19.44)) * \
+                ferr * 4. * np.pi * (3.086e19)**2
 
         flam = fnu * c / (wvs * 1e-8)**2 
-        flamplus = fnuplus * c / (wvs * 1e-8)**2
-        ferr = np.abs(flam-flamplus)
-
-        flam = flam 
-        ferr = ferr / 1e87
+        flam_err = fnu_err * c / (wvs * 1e-8)**2
 
         try:
             BBparams, covar = curve_fit(bbody,wvs,flam,
-                                p0=(9000,1e15),sigma=ferr)
+                                p0=(9000,1e15),sigma=flam_err)
             # Get temperature and radius, with errors, from fit
             T1 = BBparams[0]
             T1_err = np.sqrt(np.diag(covar))[0]
@@ -179,37 +183,21 @@ def fit_bb(dense_lc,wvs):
         except:
             T1 = np.nan
             R1 = np.nan
-
-        
-        
-        plt.plot(wvs,flam,'k')
-        plt.plot(wvs,bbody(wvs,T1,R1),'r')
-        print(T1,R1)
-        
-
+            T1_err = np.nan
+            R1_err = np.nan
 
         T_arr[i] = T1
         R_arr[i] = R1
-    plt.show()
-    return T_arr,R_arr
+        Terr_arr[i] = T1_err
+        Rerr_arr[i] = R1_err
 
-def make_outputs(bb_param):
+    return T_arr,R_arr,Terr_arr,Rerr_arr
+
+def plot_gp(lc, dense_lc, snname, flux_corr, outdir):
     '''
     Make nice outputs
     '''
 
-
-def main():
-    lc,wv_corr,flux_corr = read_in_photometry('./example/Gaia16apd.dat')
-    dense_lc = interpolate(lc)
-    lc = lc.T
-
-    wvs = np.unique(lc[:,2]) * 1000.0 + wv_corr
-
-
-    dense_lc[:,:,0] += flux_corr # This is now in AB mags
-
-    #This code doesn't work, just test
     colors = ['blue','red','green','yellow','purple','cyan']
     gind = np.argsort(lc[:,0])
     for jj in np.arange(6):
@@ -221,22 +209,93 @@ def main():
     for i,filt in enumerate(np.unique(lc[:,2])):
         gind = np.where(lc[:,2]==filt)
         plt.plot(lc[gind,0],lc[gind,1] + flux_corr,'o',color=colors[i])
-    plt.title('Gaia16apd')
-    plt.xlabel('MJD')
-    plt.ylabel('Negative Mag')
-    plt.show()
+    plt.title(snname)
+    plt.xlabel('Time')
+    plt.ylabel('Negative Absolute Magnitudes')
+    plt.savefig(outdir+snname+'_gp.png')
+    plt.clf()
+    return 1
 
-    Tarr,Rarr = fit_bb(dense_lc,wvs)
-    plt.plot(lc[:,0],Tarr,'o')
-    plt.show()
-    plt.plot(lc[:,0],Rarr,'o')
-    plt.show()
+def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
+    fig,axarr = plt.subplots(2,1,sharex=True)
+    axarr[0].plot(lc[:,0],Tarr/1.e3,'ko')
+    axarr[0].errorbar(lc[:,0],Tarr/1.e3,yerr=Terr_arr/1.e3,fmt='none',color='k')
+    axarr[0].set_ylabel('Temp. (1000 K)')
+
+    axarr[1].plot(lc[:,0],Rarr/1e15,'ko')
+    axarr[1].errorbar(lc[:,0],Rarr/1e15,yerr=Rerr_arr/1e15,fmt='none',color='k')
+    axarr[1].set_ylabel(r'Radius ($10^{15}$ cm)')
+
+    axarr[1].set_xlabel('Time (Days)')
+    axarr[0].set_title(snname)
+
+    plt.savefig(outdir+snname+'_bb_ev.png')
+    plt.clf()
+    return 1
+
+def main():
+    parser = argparse.ArgumentParser(description='extrabol helpers')
+    parser.add_argument('snfile', type=str, help='Give name of SN file')
+    parser.add_argument('-d','--dist', dest='distance', type=float,
+                    help='Object luminosity distance', default=1e-5)
+    parser.add_argument('-z','--redshift', dest='redshift', type=float,
+                    help='Object redshift', default = 0)
+    parser.add_argument('--dm', dest='dm', type=float, default=0,
+                    help='Object distance modulus')
+    parser.add_argument("--verbose", help="increase output verbosity",
+                    action="store_true")
+    parser.add_argument("--plot", help="Make plots",dest='plot',
+                    type=bool, default=True)
+    parser.add_argument("--outdir", help="Output directory",dest='outdir',
+                    type=str, default='./products/')
+    args = parser.parse_args()
+
+    if (args.redshift != 0) | (args.distance != 1e-5) | (args.dm != 0):
+        if args.redshift !=0 :
+            args.distance = cosmo.luminosity_distance(args.redshift).value
+            args.dm = cosmo.distmod(args.redshift).value
+        elif args.distance != 1e-5:
+            args.redshift = z_at_value(cosmo.luminosity_distance,args.distance * u.Mpc)
+            args.dm = cosmo.distmod(args.redshift).value
+        else:
+            args.redshift = z_at_value(cosmo.distmod,args.dm * u.mag)
+            args.distance = cosmo.luminosity_distance(args.redshift).value
+    elif verbose:
+        print('Assuming absolute magnitudes.')
+
+    if args.outdir[-1] != '/':
+        args.outdir+='/'
+
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+
+    snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
+
+    lc,wv_corr,flux_corr = read_in_photometry(args.snfile,args.dm)
+    dense_lc = interpolate(lc)
+    lc = lc.T
+    wvs = np.unique(lc[:,2]) * 1000.0 + wv_corr
+
+
+    dense_lc[:,:,0] += flux_corr # This is now in AB mags
+
+    Tarr,Rarr,Terr_arr,Rerr_arr = fit_bb(dense_lc,wvs)
+
+    if args.plot:
+        plot_gp(lc,dense_lc,snname,flux_corr,args.outdir)
+        plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
 
     bol_lum = 4. * np.pi * Rarr **2 * sigsb * Tarr**4
+    bol_err = 4. * np.pi * sigsb * np.sqrt(\
+                (2. * Rarr * Tarr**4 * Rerr_arr)**2 + \
+                (4. * Tarr**3 * Rarr**2 * Terr_arr)**2)
     plt.plot(lc[:,0],bol_lum,'o')
+    plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none')
+
     plt.title('Gaia16apd')
     plt.xlabel('MJD')
     plt.ylabel('Bolometric Luminosity')
+    plt.yscale('log')
     plt.show()
 
 
