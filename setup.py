@@ -5,13 +5,13 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="extrabol", # Replace with your own username
-    version="0.0.2",
+    version="0.0.3",
     author="V. Ashley Villar",
     author_email="vav2110@columbia.edu",
     description="Estimate SN bolometric light curves",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/extrabol",
+    url="https://github.com/villrv/extrabol",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
