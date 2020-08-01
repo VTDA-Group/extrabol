@@ -15,5 +15,7 @@ Example input:
 extrabol ./example/Gaia16apd.dat --dm 38.38 --verbose
 ```
 
+This example may take a minute the first time you run it as astroquery fetches filter information!
 
-Note that filters must be specified by their [SVO](http://svo2.cab.inta-csic.es/svo/theory/fps3/) ID.
+Filters must be specified by their [SVO](http://svo2.cab.inta-csic.es/svo/theory/fps3/) ID.
+
