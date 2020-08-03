@@ -13,7 +13,7 @@ import os
 from astropy.table import QTable
 from astropy.io import ascii
 import matplotlib.cm as cm
-import sys
+
 
 epsilon = 0.0001
 c = 2.99792458E10
@@ -87,8 +87,6 @@ def read_in_photometry(filename, dm, z):
     my_filters = []
     for ufilt in photometry_data[:,3]:
         gind = np.where(filterIDs==ufilt)[0]
-        if len(gind) == 0:
-            sys.exit('Cannot find '+str(ufilt)+' in SVO.')
         wv_effs.append(wavelengthEffs[gind][0])
         width_effs.append(widthEffs[gind][0])   
         my_filters.append(ufilt) 
@@ -108,11 +106,10 @@ def read_in_photometry(filename, dm, z):
         flux = 2.5 * (np.log10(flux) - np.log10(3631.00))
         fluxes.append(flux)
 
-    wv_effs = np.asarray(wv_effs)
 
     wv_corr = np.mean(wv_effs/(1.+z))
     flux_corr = np.min(fluxes) - 1.0
-    wv_effs = wv_effs - wv_corr
+    wv_effs = np.asarray(wv_effs) - wv_corr
     fluxes = np.asarray(fluxes) - flux_corr
     phases = np.asarray(phases)
     lc = np.vstack((phases,fluxes,wv_effs/1000.,errs,width_effs))
@@ -143,7 +140,7 @@ def interpolate(lc):
     x_pred = np.zeros((len(lc)*nfilts, 2))
     dense_fluxes = np.zeros((len(lc), nfilts))
     dense_errs = np.zeros((len(lc), nfilts))
-    kernel = np.var(lc[:,1]) * george.kernels.ExpSquaredKernel([50, 0.5], ndim=2)
+    kernel = np.var(lc[:,1]) * george.kernels.ExpSquaredKernel([10, 0.5], ndim=2)
     gp = george.GP(kernel)
     gp.compute(stacked_data, lc[:,-2])
 
@@ -264,7 +261,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, outdir):
     wv_colors = (wvs - np.min(wvs)) / (np.max(wvs) - np.min(wvs))
 
     gind = np.argsort(lc[:,0])
-    for jj in np.arange(len(wv_colors)):
+    for jj in np.arange(6):
         plt.plot(lc[gind,0],-dense_lc[gind,jj,0],color=cm(wv_colors[jj]),
                 label=my_filters[jj].split('/')[-1])
         plt.fill_between(lc[gind,0],-dense_lc[gind,jj,0]-dense_lc[gind,jj,1],
