@@ -10,7 +10,7 @@ from astropy.cosmology import Planck13 as cosmo
 from astropy.cosmology import z_at_value
 from astropy import units as u
 import os 
-from astropy.table import QTable
+from astropy.table import Table
 from astropy.io import ascii
 import matplotlib.cm as cm
 import sys
@@ -356,13 +356,16 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
     plt.clf()
     return 1
 
-def write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
-                snname,outdir):
+def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
+                 bol_lum,bol_err,my_filters,
+                 snname,outdir):
     '''
     Write out the interpolated LC and BB information
 
     Parameters
     ----------
+    lc : numpy.array
+        Initial light curve
     dense_lc : numpy.array
         GP-interpolated LC
     T_arr : numpy.array
@@ -373,6 +376,10 @@ def write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
         BB radius array (cm)
     Rerr_arr : numpy.array
         BB temperature error array (cm)
+    bol_lum : numpy.array
+        BB luminosity (erg/s)
+    bol_err : numpy.array
+        BB luminosity error (erg/s)
     my_filters : list
         List of filter names
     snname : string
@@ -383,19 +390,25 @@ def write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
     Output
     ------
     '''
+    times = lc[:,0]
     dense_lc = np.reshape(dense_lc,(len(dense_lc),-1))
-    tabledata = np.stack((Tarr/1e3,Terr_arr/1e3,Rarr/1e15,Rerr_arr/1e15)).T
+    dense_lc = np.hstack((np.reshape(-times,(len(times),1)),dense_lc))
+    tabledata = np.stack((Tarr/1e3,Terr_arr/1e3,Rarr/1e15,
+                        Rerr_arr/1e15, np.log10(bol_lum), np.log10(bol_err))).T
     tabledata = np.hstack((-dense_lc,tabledata)).T
 
     ufilts = np.unique(my_filters)
     table_header = []
+    table_header.append('Time (MJD)')
     for filt in ufilts:
         table_header.append(filt)
         table_header.append(filt+'_err')
-    table_header.extend(['Temp./1e3 (K)','Temp. Err.','Radius/1e15 (cm)','Radius Err.'])
-    table = QTable([*tabledata],
-        names = {(*table_header)},
+    table_header.extend(['Temp./1e3 (K)','Temp. Err.',
+        'Radius/1e15 (cm)','Radius Err.', 'Log10(Bol. Lum)', 'Log10(Bol. Err)'])
+    table = Table([*tabledata],
+        names = table_header,
                 meta={'name': 'first table'})
+
     format_dict = {head:'%0.3f' for head in table_header}
     ascii.write(table, outdir+snname+'.txt', formats=format_dict, overwrite=True)
     return 1
@@ -471,7 +484,7 @@ def main():
 
     if args.verbose:
         print('Writing output to '+args.outdir)
-    write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
+    write_output(lc,dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,bol_lum,bol_err,my_filters,
                 snname,args.outdir)
 
 

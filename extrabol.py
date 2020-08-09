@@ -390,6 +390,8 @@ def write_output(dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,my_filters,
         table_header.append(filt)
         table_header.append(filt+'_err')
     table_header.extend(['Temp./1e3 (K)','Temp. Err.','Radius/1e15 (cm)','Radius Err.'])
+    print(table_header)
+    sys.exit()
     table = QTable([*tabledata],
         names = {(*table_header)},
                 meta={'name': 'first table'})
