@@ -14,6 +14,7 @@ from astropy.table import Table
 from astropy.io import ascii
 import matplotlib.cm as cm
 import sys
+from scipy import interpolate as interp
 
 epsilon = 0.0001
 c = 2.99792458E10
@@ -114,7 +115,7 @@ def read_in_photometry(filename, dm, z):
     flux_corr = np.min(fluxes) - 1.0
     wv_effs = wv_effs - wv_corr
     fluxes = np.asarray(fluxes) - flux_corr
-    phases = np.asarray(phases)
+    phases = np.asarray(phases) - np.min(phases)
     lc = np.vstack((phases,fluxes,wv_effs/1000.,errs,width_effs))
 
     return lc,wv_corr,flux_corr, my_filters
@@ -135,6 +136,13 @@ def interpolate(lc):
     '''
     lc = lc.T
 
+    template = np.load('./smoothed_sn1a.npz')
+    temp_times = template['time']
+    temp_wavelength = template['wavelength']
+    temp_f_lambda = template['f_lambda']
+
+    #template_function = interp.interp2d(temp_times, temp_wavelength, temp_f_lambda)
+
     times = lc[:,0]
     filters = lc[:,2]
     stacked_data = np.vstack([times, filters]).T
@@ -144,7 +152,7 @@ def interpolate(lc):
     dense_fluxes = np.zeros((len(lc), nfilts))
     dense_errs = np.zeros((len(lc), nfilts))
     kernel = np.var(lc[:,1]) * george.kernels.ExpSquaredKernel([50, 0.5], ndim=2)
-    gp = george.GP(kernel)
+    gp = george.GP(kernel, mean = 0)
     gp.compute(stacked_data, lc[:,-2])
 
     def neg_ln_like(p):
@@ -470,4 +478,4 @@ def main(snfile, distance=1e-5, redshift = 0, dm = 0, verbose=True, plot=True, o
 
 
 if __name__ == "__main__":
-    main('./example/Gaia16apd.dat',  dm = 38.38)
+    main('./extrabol/example/Gaia16apd.dat',  dm = 38.38)
