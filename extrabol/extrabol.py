@@ -136,10 +136,13 @@ def interpolate(lc):
     '''
     lc = lc.T
 
+    # Note I just commented this out becaue the directory does not have smoothed_snia.npz within it
+    '''
     template = np.load('./smoothed_sn1a.npz')
     temp_times = template['time']
     temp_wavelength = template['wavelength']
     temp_f_lambda = template['f_lambda']
+    '''
 
     #template_function = interp.interp2d(temp_times, temp_wavelength, temp_f_lambda)
 
@@ -421,31 +424,51 @@ def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
     ascii.write(table, outdir+snname+'.txt', formats=format_dict, overwrite=True)
     return 1
 
-def main(snfile, distance=1e-5, redshift = 0, dm = 0, verbose=True, plot=True, outdir = 'outdir', 
-                ebv = 0.0, hostebv = 0.0):
+def main():
+    parser = argparse.ArgumentParser(description='extrabol helpers')
+    parser.add_argument('snfile', nargs='?', default='./extrabol/example/Gaia16apd.dat',
+                     type=str, help='Give name of SN file')
+    parser.add_argument('-d','--dist', dest='distance', type=float,
+                    help='Object luminosity distance', default=1e-5)
+    parser.add_argument('-z','--redshift', dest='redshift', type=float,
+                    help='Object redshift', default = 0)
+    parser.add_argument('--dm', dest='dm', type=float, default=0,
+                    help='Object distance modulus')
+    parser.add_argument("--verbose", help="increase output verbosity",
+                    action="store_true")
+    parser.add_argument("--plot", help="Make plots",dest='plot',
+                    type=bool, default=True)
+    parser.add_argument("--outdir", help="Output directory",dest='outdir',
+                    type=str, default='./products/')
+    parser.add_argument("--ebv", help="MWebv",dest='ebv',
+                    type=float, default=0.0)
+    parser.add_argument("--hostebv", help="Host B-V",dest='hostebv',
+                    type=float, default=0.0)
+    
+    args = parser.parse_args()
 
-    if (redshift != 0) | (distance != 1e-5) | (dm != 0):
-        if redshift !=0 :
-            distance = cosmo.luminosity_distance(redshift).value
-            dm = cosmo.distmod(redshift).value
-        elif distance != 1e-5:
-            redshift = z_at_value(cosmo.luminosity_distance,distance * u.Mpc)
-            dm = cosmo.distmod(redshift).value
+    if (args.redshift != 0) | (args.distance != 1e-5) | (args.dm != 0):
+        if args.redshift !=0 :
+            args.distance = cosmo.luminosity_distance(args.redshift).value
+            args.dm = cosmo.distmod(args.redshift).value
+        elif args.distance != 1e-5:
+            args.redshift = z_at_value(cosmo.luminosity_distance,distance * u.Mpc)
+            dm = cosmo.distmod(args.redshift).value
         else:
-            redshift = z_at_value(cosmo.distmod,dm * u.mag)
-            distance = cosmo.luminosity_distance(redshift).value
-    elif verbose:
+            args.redshift = z_at_value(cosmo.distmod,dm * u.mag)
+            distance = cosmo.luminosity_distance(args.redshift).value
+    elif args.verbose:
         print('Assuming absolute magnitudes.')
 
-    if outdir[-1] != '/':
-        outdir+='/'
+    if args.outdir[-1] != '/':
+        args.outdir+='/'
 
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
 
-    snname = ('.').join(snfile.split('.')[:-1]).split('/')[-1]
+    snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
 
-    lc,wv_corr,flux_corr, my_filters = read_in_photometry(snfile, dm, redshift)
+    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift)
     dense_lc = interpolate(lc)
     lc = lc.T
 
@@ -464,17 +487,17 @@ def main(snfile, distance=1e-5, redshift = 0, dm = 0, verbose=True, plot=True, o
                 (2. * Rarr * Tarr**4 * Rerr_arr)**2 + \
                 (4. * Tarr**3 * Rarr**2 * Terr_arr)**2)
 
-    if plot:
-        if verbose:
-            print('Making plots in '+outdir)
-        plot_gp(lc,dense_lc,snname,flux_corr,ufilts,wvs,outdir)
-        plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,outdir)
-        plot_bb_bol(lc, bol_lum, bol_err, snname, outdir)
+    if args.plot:
+        if args.verbose:
+            print('Making plots in '+args.outdir)
+        plot_gp(lc,dense_lc,snname,flux_corr,ufilts,wvs,args.outdir)
+        plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
+        plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir)
 
-    if verbose:
-        print('Writing output to '+outdir)
+    if args.verbose:
+        print('Writing output to '+args.outdir)
     write_output(lc,dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,bol_lum,bol_err,my_filters,
-                snname,outdir)
+                snname,args.outdir)
 
 
 if __name__ == "__main__":
