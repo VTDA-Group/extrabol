@@ -136,16 +136,6 @@ def interpolate(lc):
     '''
     lc = lc.T
 
-    # Note I just commented this out becaue the directory does not have smoothed_snia.npz within it
-    '''
-    template = np.load('./smoothed_sn1a.npz')
-    temp_times = template['time']
-    temp_wavelength = template['wavelength']
-    temp_f_lambda = template['f_lambda']
-    '''
-
-    #template_function = interp.interp2d(temp_times, temp_wavelength, temp_f_lambda)
-
     times = lc[:,0]
     filters = lc[:,2]
     stacked_data = np.vstack([times, filters]).T
@@ -157,6 +147,22 @@ def interpolate(lc):
     kernel = np.var(lc[:,1]) * george.kernels.ExpSquaredKernel([50, 0.5], ndim=2)
     gp = george.GP(kernel, mean = 0)
     gp.compute(stacked_data, lc[:,-2])
+
+# Note I just commented this out becaue the directory does not have smoothed_snia.npz within it
+    
+    template = np.load('../extrabol/template/smoothed_sn1a.npz')
+    temp_times = template['time']
+    temp_wavelength = template['wavelength']
+    temp_f_lambda = template['f_lambda']
+    gis = []
+    for i in np.arange(len(temp_wavelength)):
+        if temp_wavelength[i] < np.amax(ufilts) and temp_wavelength[i] > np.amin(ufilts):
+            gis.append(i)
+    temp_times = temp_times[gis]
+    temp_wavelength = temp_wavelength[gis]
+    temp_f_lambda = temp_f_lambda[gis]
+
+    template_function = interp.interp2d(temp_times, temp_wavelength, temp_f_lambda)
 
     def neg_ln_like(p):
         gp.set_parameter_vector(p)
@@ -424,9 +430,9 @@ def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
     ascii.write(table, outdir+snname+'.txt', formats=format_dict, overwrite=True)
     return 1
 
-def main():
+def main(snfile, dm=38.38):
     parser = argparse.ArgumentParser(description='extrabol helpers')
-    parser.add_argument('snfile', nargs='?', default='./extrabol/example/Gaia16apd.dat',
+    parser.add_argument('snfile', nargs='?', default='../extrabol/example/Gaia16apd.dat',
                      type=str, help='Give name of SN file')
     parser.add_argument('-d','--dist', dest='distance', type=float,
                     help='Object luminosity distance', default=1e-5)
