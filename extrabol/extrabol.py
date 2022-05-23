@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from turtle import shape
 import numpy as np
 from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
@@ -15,6 +16,8 @@ from astropy.io import ascii
 import matplotlib.cm as cm
 import sys
 from scipy import interpolate as interp
+from george.modeling import Model
+from statistics import median
 
 epsilon = 0.0001
 c = 2.99792458E10
@@ -22,6 +25,7 @@ sigsb = 5.6704e-5 #erg / cm^2 / s / K^4
 h = 6.62607E-27
 ang_to_cm = 1e-8
 k_B = 1.38064852E-16 # cm^2 * g / s^2 / K
+
 
 def bbody(lam,T,R):
     '''
@@ -49,6 +53,7 @@ def bbody(lam,T,R):
 
     return lum
 
+
 def read_in_photometry(filename, dm, z):
     '''
     Read in SN file
@@ -73,6 +78,7 @@ def read_in_photometry(filename, dm, z):
     my_filters : list
         List of filter names
     '''
+
     photometry_data = np.loadtxt(filename,dtype=str)
 
     phases = np.asarray(photometry_data[:,0],dtype=float)
@@ -120,7 +126,145 @@ def read_in_photometry(filename, dm, z):
 
     return lc,wv_corr,flux_corr, my_filters
 
-def interpolate(lc):
+
+def generate_template(filter_wv, sn_type):
+    '''
+    Prepare and interpolate SN1a Template
+
+    Parameters
+    ----------
+    fiter_wv : numpy.array
+        effective wavelength of filters in Angstroms
+    
+    Output
+    ------
+    temp_interped : RectBivariateSpline object
+        interpolated template
+    '''
+
+    template = np.load('../template/smoothed_sn'+ sn_type +'.npz')
+    temp_times = template['time']
+    temp_wavelength = template['wavelength']
+    temp_f_lambda = template['f_lambda']
+
+    #The template is too large, so we thin it out
+    #CHOP ENDS
+    gis = []
+    for i in np.arange(len(temp_wavelength)):
+            if temp_wavelength[i] < np.amax(filter_wv) and temp_wavelength[i] > np.amin(filter_wv):
+                gis.append(i)
+    temp_times = temp_times[gis]
+    temp_wavelength = temp_wavelength[gis]
+    temp_f_lambda = temp_f_lambda[gis]
+
+    #REMOVE EVERY OTHER TIME
+    gis = []
+    for i in np.arange(len(temp_times)):
+        if temp_times[i] % 2. == 0:
+            gis.append(i)
+    temp_times = temp_times[gis]
+    temp_wavelength = temp_wavelength[gis]
+    temp_f_lambda = temp_f_lambda[gis]
+    
+    #REMOVE EVERY OTHER WAVELENGTH   
+    gis = []
+    for i in np.arange(len(temp_wavelength)):
+        if temp_wavelength[i] % 20. == 0:
+            gis.append(i)
+    temp_times = temp_times[gis]
+    temp_wavelength = temp_wavelength[gis]
+    temp_f_lambda = temp_f_lambda[gis]
+
+    #RectBivariateSpline requires that x and y are 1-d arrays, strictly ascending
+    temp_times_u = np.unique(temp_times)                                        
+    temp_wavelength_u = np.unique(temp_wavelength)
+    temp_f_lambda_u = np.zeros((len(temp_times_u), len(temp_wavelength_u)))
+    for i in np.arange(len(temp_times_u)):
+        gis = np.where(temp_times == temp_times_u[i])
+        temp_f_lambda_u[i,:] = temp_f_lambda[gis]
+    #Template needs to be converted to log(flux) to match data
+    for i in np.arange(len(temp_wavelength_u)):
+        wv = temp_wavelength_u[i]
+        temp_f_lambda_u[:,i] = 2.5 * np.log10((wv**2) * temp_f_lambda_u[:,i])
+    temp_interped = interp.RectBivariateSpline(temp_times_u, temp_wavelength_u, temp_f_lambda_u)
+
+    return temp_interped
+
+
+def fit_template(wv, template_to_fit, filts, wv_corr, flux, time):
+    '''
+    Get parameters to roughly fit template to data
+
+    Parameters
+    ----------
+    wv : numpy.array
+        wavelenght of filters in angstroms
+    template_to_fit : RectBivariateSpline object
+        interpolated template
+    filts : numpy.array
+        normalized wavelength values for each obseration
+    wv_corr : float
+        Mean of wavelengths, used in GP pre-processing
+    flux : numpy.array
+        flux data from observations
+    time : numpy.array
+        time data from observations
+    Output
+    ------
+    A_opt : float
+        multiplicative constant to be applied to template flux values
+    t_c_opt : float
+        additive constant to line up template and data in time
+    '''
+
+    A_opt = []
+    t_c_opt = []
+    t_s_opt = []
+
+    #We will fit the template to the data for each filter used, and use the median parameter values
+    for wavelength in wv:
+
+        #A callable function for curve_fit to use. Input time and parameters, outputs log(flux) to compare to data
+        def model(time, A, t_c, t_s):
+            time_sorted = sorted(time)
+            time_corr = np.asarray(time_sorted) * t_s + t_c
+            mag = template_to_fit(time_corr, wavelength) + A    #not really magnitudes, just log(flux) to match data
+            mag = np.ndarray.flatten(mag)
+            return mag
+
+        gis = np.where(filts * 1000 + wv_corr == wavelength)
+        dat_fluxes = flux[gis]
+        dat_times = time[gis]
+        popt, pcov = curve_fit(model, dat_times, dat_fluxes, p0 =[20,0,0.1], maxfev = 8000)
+        A_opt.append(popt[0])
+        t_c_opt.append(popt[1])
+        t_s_opt.append(popt[2])
+
+    A_opt = median(A_opt)
+    t_c_opt = median(t_c_opt)
+    t_s_opt = median(t_s_opt)
+
+    return A_opt, t_c_opt, t_s_opt 
+
+
+def test():
+    '''
+    Test every available template for the lowest possible chi^2
+
+    Parameters
+    ----------
+    lc : numpy.array
+        LC array
+
+    Output
+    ------
+    dense_lc : numpy.array
+        GP-interpolated LC and errors
+    '''
+    return 0
+
+
+def interpolate(lc, wv_corr, sn_type, use_mean):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -134,35 +278,50 @@ def interpolate(lc):
     dense_lc : numpy.array
         GP-interpolated LC and errors
     '''
+
     lc = lc.T
 
     times = lc[:,0]
+    fluxes = lc[:,1]
     filters = lc[:,2]
     stacked_data = np.vstack([times, filters]).T
     ufilts = np.unique(lc[:,2])
+    ufilts_in_angstrom = ufilts * 1000.0 + wv_corr
     nfilts = len(ufilts)
     x_pred = np.zeros((len(lc)*nfilts, 2))
     dense_fluxes = np.zeros((len(lc), nfilts))
     dense_errs = np.zeros((len(lc), nfilts))
+
+    test_y=[]        #only used if a template is used, but I still need it to exist either way
+    test_times=[]
+    if(use_mean == True):
+        template = generate_template(ufilts_in_angstrom, sn_type)
+        f_stretch, t_shift, t_stretch = fit_template(ufilts_in_angstrom, template, filters, wv_corr, fluxes, times)
+          
+        #george needs the mean function to be in this format
+        class snModel(Model):
+            def get_value(self, param):
+                t = param[:,0] * t_stretch + t_shift
+                wv = param[:,1]
+                return np.asarray([template(*p)[0] for p in zip(t,wv)]) + f_stretch
+
+        #Get Test data to plot
+        mean = snModel()
+
+        for i in ufilts_in_angstrom:
+            test_wv = np.full((1,round(np.max(times))-round(np.min(times))),i)
+            test_times = np.arange(round(np.min(times)),round(np.max(times)))
+            test_x = np.vstack((test_times,test_wv)).T
+            test_y.append(mean.get_value(test_x))
+        test_y=np.asarray(test_y)
+
+    #set up gp
     kernel = np.var(lc[:,1]) * george.kernels.ExpSquaredKernel([50, 0.5], ndim=2)
-    gp = george.GP(kernel, mean = 0)
+    if(use_mean == False):
+        gp = george.GP(kernel, mean = 0)
+    else:
+        gp = george.GP(kernel, mean = snModel())
     gp.compute(stacked_data, lc[:,-2])
-
-# Note I just commented this out becaue the directory does not have smoothed_snia.npz within it
-    
-    template = np.load('../extrabol/template/smoothed_sn1a.npz')
-    temp_times = template['time']
-    temp_wavelength = template['wavelength']
-    temp_f_lambda = template['f_lambda']
-    gis = []
-    for i in np.arange(len(temp_wavelength)):
-        if temp_wavelength[i] < np.amax(ufilts) and temp_wavelength[i] > np.amin(ufilts):
-            gis.append(i)
-    temp_times = temp_times[gis]
-    temp_wavelength = temp_wavelength[gis]
-    temp_f_lambda = temp_f_lambda[gis]
-
-    template_function = interp.interp2d(temp_times, temp_wavelength, temp_f_lambda)
 
     def neg_ln_like(p):
         gp.set_parameter_vector(p)
@@ -172,24 +331,27 @@ def interpolate(lc):
         gp.set_parameter_vector(p)
         return -gp.grad_log_likelihood(lc[:,1])
 
+    #optomize gp parameters
     result = minimize(neg_ln_like,
                       gp.get_parameter_vector(),
                       jac=grad_neg_ln_like)
     gp.set_parameter_vector(result.x)
 
+    #populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(lc[:,0]):
         x_pred[jj*nfilts:jj*nfilts+nfilts, 0] = [time]*nfilts
         x_pred[jj*nfilts:jj*nfilts+nfilts, 1] = ufilts
 
     pred, pred_var = gp.predict(lc[:,1], x_pred, return_var=True)
 
+    #populate dense_lc with newly gp-predicted values
     for jj in np.arange(nfilts):
         gind = np.where(np.abs(x_pred[:, 1]-ufilts[jj])<epsilon)[0]
         dense_fluxes[:, int(jj)] = pred[gind]
         dense_errs[:, int(jj)] = np.sqrt(pred_var[gind])
     dense_lc = np.dstack((dense_fluxes, dense_errs))
     
-    return dense_lc
+    return dense_lc, test_y, test_times
 
 
 def fit_bb(dense_lc,wvs):
@@ -215,6 +377,7 @@ def fit_bb(dense_lc,wvs):
     Rerr_arr : numpy.array
         BB temperature error array (cm)
     '''
+
     T_arr = np.zeros(len(dense_lc))
     R_arr = np.zeros(len(dense_lc))
     Terr_arr = np.zeros(len(dense_lc))
@@ -252,7 +415,8 @@ def fit_bb(dense_lc,wvs):
 
     return T_arr,R_arr,Terr_arr,Rerr_arr
 
-def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, outdir):
+
+def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data, outdir, sn_type, test_times, mean, show_template):
     '''
     Plot the GP-interpolate LC and save
 
@@ -284,6 +448,9 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, outdir):
     for jj in np.arange(len(wv_colors)):
         plt.plot(lc[gind,0],-dense_lc[gind,jj,0],color=cm(wv_colors[jj]),
                 label=my_filters[jj].split('/')[-1])
+        if(mean == True):
+            if(show_template == True):
+                plt.plot(test_times,-(test_data[jj,:] + flux_corr),'--',color=cm(wv_colors[jj]))#template curves
         plt.fill_between(lc[gind,0],-dense_lc[gind,jj,0]-dense_lc[gind,jj,1],
                     -dense_lc[gind,jj,0]+dense_lc[gind,jj,1],
                     color=cm(wv_colors[jj]),alpha=0.2)
@@ -292,7 +459,10 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, outdir):
         gind = np.where(lc[:,2]==filt)
         plt.plot(lc[gind,0],-(lc[gind,1] + flux_corr),'o',
                 color=cm(wv_colors[i]))
-    plt.title(snname)
+    if(mean == True):
+        plt.title(snname + ' using sn' + sn_type + ' template')
+    else:
+        plt.title(snname)
     plt.legend()
     plt.xlabel('Time')
     plt.ylabel('Absolute Magnitudes')
@@ -300,7 +470,9 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, outdir):
     plt.gca().invert_yaxis()
     plt.savefig(outdir+snname+'_gp.png')
     plt.clf()
+
     return 1
+
 
 def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
     '''
@@ -326,6 +498,7 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
     Output
     ------
     '''
+
     fig,axarr = plt.subplots(2,1,sharex=True)
     axarr[0].plot(lc[:,0],Tarr/1.e3,'ko')
     axarr[0].errorbar(lc[:,0],Tarr/1.e3,yerr=Terr_arr/1.e3,fmt='none',color='k')
@@ -340,7 +513,9 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
 
     plt.savefig(outdir+snname+'_bb_ev.png')
     plt.clf()
+
     return 1
+
 
 def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
     '''
@@ -362,6 +537,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
     Output
     ------
     '''
+
     plt.plot(lc[:,0],bol_lum,'ko')
     plt.errorbar(lc[:,0],bol_lum,yerr=bol_err,fmt='none',color='k')
 
@@ -371,7 +547,9 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
     plt.yscale('log')
     plt.savefig(outdir+snname+'_bb_bol.png')
     plt.clf()
+
     return 1
+
 
 def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
                  bol_lum,bol_err,my_filters,
@@ -407,6 +585,7 @@ def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
     Output
     ------
     '''
+
     times = lc[:,0]
     dense_lc = np.reshape(dense_lc,(len(dense_lc),-1))
     dense_lc = np.hstack((np.reshape(-times,(len(times),1)),dense_lc))
@@ -428,12 +607,19 @@ def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
 
     format_dict = {head:'%0.3f' for head in table_header}
     ascii.write(table, outdir+snname+'.txt', formats=format_dict, overwrite=True)
+    
     return 1
 
+
 def main(snfile, dm=38.38):
+
     parser = argparse.ArgumentParser(description='extrabol helpers')
-    parser.add_argument('snfile', nargs='?', default='../extrabol/example/Gaia16apd.dat',
-                     type=str, help='Give name of SN file')
+    parser.add_argument('snfile', nargs='?', default='../example/Gaia16apd.dat',
+                    type=str, help='Give name of SN file')
+    parser.add_argument('-m', '--mean', dest='mean', type=str, default='0', 
+                    help="Template function for gp. Choose \'1a\',\'1bc\', \'2l\', \'2p\', or \'0\' for no template" )
+    parser.add_argument('-t', '--show_template', dest='template',
+                    action='store_true', help="Shows template function on plots")
     parser.add_argument('-d','--dist', dest='distance', type=float,
                     help='Object luminosity distance', default=1e-5)
     parser.add_argument('-z','--redshift', dest='redshift', type=float,
@@ -452,6 +638,16 @@ def main(snfile, dm=38.38):
                     type=float, default=0.0)
     
     args = parser.parse_args()
+
+    sn_type = args.mean
+    try:
+        sn_type=int(sn_type)
+        mean = False
+    except ValueError:
+        sn_type = sn_type
+        mean = True
+    if sn_type == 'test':
+        test()
 
     if (args.redshift != 0) | (args.distance != 1e-5) | (args.dm != 0):
         if args.redshift !=0 :
@@ -475,7 +671,7 @@ def main(snfile, dm=38.38):
     snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
 
     lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift)
-    dense_lc = interpolate(lc)
+    dense_lc, test_data, test_times = interpolate(lc, wv_corr, sn_type, mean)
     lc = lc.T
 
     wvs,wvind = np.unique(lc[:,2],return_index=True)
@@ -496,7 +692,7 @@ def main(snfile, dm=38.38):
     if args.plot:
         if args.verbose:
             print('Making plots in '+args.outdir)
-        plot_gp(lc,dense_lc,snname,flux_corr,ufilts,wvs,args.outdir)
+        plot_gp(lc,dense_lc,snname,flux_corr,ufilts,wvs,test_data,args.outdir, sn_type, test_times, mean, args.template)
         plot_bb_ev(lc,Tarr,Rarr,Terr_arr,Rerr_arr,snname,args.outdir)
         plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir)
 
@@ -507,4 +703,4 @@ def main(snfile, dm=38.38):
 
 
 if __name__ == "__main__":
-    main('./extrabol/example/Gaia16apd.dat',  dm = 38.38)
+    main('../example/Gaia16apd.dat',  dm = 38.38)
