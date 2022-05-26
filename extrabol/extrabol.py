@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from turtle import shape
+from turtle import shape, width
 import numpy as np
 from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
@@ -53,8 +53,15 @@ def bbody(lam,T,R):
 
     return lum
 
+def chi_square(dat, model, uncertainty):
 
-def read_in_photometry(filename, dm, z):
+    chi2=0.
+    for i in np.arange(len(dat)):
+        chi2 += ((model[i]-dat[i])/uncertainty[i])**2.
+    return chi2
+
+
+def read_in_photometry(filename, dm, redshift, start, end, snr):
     '''
     Read in SN file
 
@@ -79,7 +86,7 @@ def read_in_photometry(filename, dm, z):
         List of filter names
     '''
 
-    photometry_data = np.loadtxt(filename,dtype=str)
+    photometry_data = np.loadtxt(filename,dtype=str, skiprows = 2)
 
     phases = np.asarray(photometry_data[:,0],dtype=float)
     errs = np.asarray(photometry_data[:,2],dtype=float)
@@ -110,18 +117,51 @@ def read_in_photometry(filename, dm, z):
             gind = np.where(filterIDs==datapoint[3])
             zpts.append(float(zpts_all[gind[0]][0]))
     
-        flux = 10.** (mag / -2.5) * zpts[-1] * (1.+z)
+        flux = 10.** (mag / -2.5) * zpts[-1] * (1.+redshift)
         #I'm calling ths flux..but I'm going to do it in log flux space
         flux = 2.5 * (np.log10(flux) - np.log10(3631.00))
         fluxes.append(flux)
 
     wv_effs = np.asarray(wv_effs)
 
-    wv_corr = np.mean(wv_effs/(1.+z))
+    wv_corr = np.mean(wv_effs/(1.+redshift))
     flux_corr = np.min(fluxes) - 1.0
     wv_effs = wv_effs - wv_corr
     fluxes = np.asarray(fluxes) - flux_corr
+
+    #Eliminate any data points bellow threshold snr
+    gis = []
+    for i in np.arange(len(phases)):
+        if (1/errs[i]) >= snr:
+            gis.append(i)
+    gis = np.asarray(gis, dtype = int)
+    
+    phases = phases[gis]
+    fluxes = fluxes[gis]
+    wv_effs = wv_effs[gis]
+    errs = errs[gis]
+    width_effs = np.asarray(width_effs) #this wasn't an array already??? idk, this makes it work though
+    width_effs = width_effs[gis]
+    my_filters = np.asarray(my_filters) #also wasn't an array??
+    my_filters = my_filters[gis]
+    #print(phases)
+    #set the first acceptable data point to t=0
     phases = np.asarray(phases) - np.min(phases)
+
+    #eliminate any data points outside of specified range (with respect to first data point)
+    gis = []
+    for i in np.arange(len(phases)):
+        if phases[i] <= end and phases[i] >= start:
+            gis.append(i)
+    gis = np.asarray(gis, dtype = int)
+    
+    phases = phases[gis]
+    fluxes = fluxes[gis]
+    wv_effs = wv_effs[gis]
+    errs = errs[gis]
+    width_effs = width_effs[gis]
+    my_filters = my_filters[gis]
+    #print(phases)
     lc = np.vstack((phases,fluxes,wv_effs/1000.,errs,width_effs))
 
     return lc,wv_corr,flux_corr, my_filters
@@ -142,11 +182,11 @@ def generate_template(filter_wv, sn_type):
         interpolated template
     '''
 
-    template = np.load('../template/smoothed_sn'+ sn_type +'.npz')
+    template = np.load('./extrabol/template/smoothed_sn'+ sn_type +'.npz')
     temp_times = template['time']
     temp_wavelength = template['wavelength']
     temp_f_lambda = template['f_lambda']
-
+    
     #The template is too large, so we thin it out
     #CHOP ENDS
     gis = []
@@ -156,7 +196,7 @@ def generate_template(filter_wv, sn_type):
     temp_times = temp_times[gis]
     temp_wavelength = temp_wavelength[gis]
     temp_f_lambda = temp_f_lambda[gis]
-
+    
     #REMOVE EVERY OTHER TIME
     gis = []
     for i in np.arange(len(temp_times)):
@@ -174,9 +214,18 @@ def generate_template(filter_wv, sn_type):
     temp_times = temp_times[gis]
     temp_wavelength = temp_wavelength[gis]
     temp_f_lambda = temp_f_lambda[gis]
+    
+    #REMOVE INITIAL RISE (too dim = low snr)
+    gis = []
+    for i in np.arange(len(temp_times)):
+        if temp_times[i] >= 1.:
+            gis.append(i)
+    temp_times = temp_times[gis]
+    temp_wavelength = temp_wavelength[gis]
+    temp_f_lambda = temp_f_lambda[gis]
 
     #RectBivariateSpline requires that x and y are 1-d arrays, strictly ascending
-    temp_times_u = np.unique(temp_times)                                        
+    temp_times_u = np.unique(temp_times)
     temp_wavelength_u = np.unique(temp_wavelength)
     temp_f_lambda_u = np.zeros((len(temp_times_u), len(temp_wavelength_u)))
     for i in np.arange(len(temp_times_u)):
@@ -186,12 +235,13 @@ def generate_template(filter_wv, sn_type):
     for i in np.arange(len(temp_wavelength_u)):
         wv = temp_wavelength_u[i]
         temp_f_lambda_u[:,i] = 2.5 * np.log10((wv**2) * temp_f_lambda_u[:,i])
+    
     temp_interped = interp.RectBivariateSpline(temp_times_u, temp_wavelength_u, temp_f_lambda_u)
 
     return temp_interped
 
 
-def fit_template(wv, template_to_fit, filts, wv_corr, flux, time):
+def fit_template(wv, template_to_fit, filts, wv_corr, flux, time, errs, z, output_chi = False, output_params = True):
     '''
     Get parameters to roughly fit template to data
 
@@ -220,34 +270,62 @@ def fit_template(wv, template_to_fit, filts, wv_corr, flux, time):
     A_opt = []
     t_c_opt = []
     t_s_opt = []
+    chi2 = []
 
     #We will fit the template to the data for each filter used, and use the median parameter values
     for wavelength in wv:
 
-        #A callable function for curve_fit to use. Input time and parameters, outputs log(flux) to compare to data
-        def model(time, A, t_c, t_s):
+        #A callable function to test chi2 later on
+        def model(time, filt, A, t_c, t_s):
             time_sorted = sorted(time)
-            time_corr = np.asarray(time_sorted) * t_s + t_c
-            mag = template_to_fit(time_corr, wavelength) + A    #not really magnitudes, just log(flux) to match data
+            time_corr = np.asarray(time_sorted) * 1./t_s + t_c
+            mag = template_to_fit(time_corr, filt) + A    #not really magnitudes, just log(flux) to match data
             mag = np.ndarray.flatten(mag)
+            return mag
+
+        #curve_fit won't know what to do with the filt param so I need to modify it slightly
+        def curve_to_fit(time, A, t_c, t_s):
+            mag = model(time, wavelength, A, t_c, t_s)
             return mag
 
         gis = np.where(filts * 1000 + wv_corr == wavelength)
         dat_fluxes = flux[gis]
         dat_times = time[gis]
-        popt, pcov = curve_fit(model, dat_times, dat_fluxes, p0 =[20,0,0.1], maxfev = 8000)
+        dat_errs = errs[gis]
+        popt, pcov = curve_fit(curve_to_fit, dat_times, dat_fluxes, p0 =[20,0,1+z], maxfev = 8000, bounds = ([-np.inf, -np.inf, 0],np.inf))
         A_opt.append(popt[0])
         t_c_opt.append(popt[1])
         t_s_opt.append(popt[2])
 
-    A_opt = median(A_opt)
-    t_c_opt = median(t_c_opt)
-    t_s_opt = median(t_s_opt)
+        param_chi = 0           #test chi2 for this set of parameters
+        for filt in wv:
+            m = model(dat_times, filt, popt[0], popt[1], popt[2])
+            param_chi += chi_square(dat_fluxes, m, dat_errs)
+        chi2.append(param_chi)
 
-    return A_opt, t_c_opt, t_s_opt 
+    print(chi2)
+    gi = np.argmin(chi2)
+    chi2 = chi2[gi]
+    print('Chosen chi2 for template: '+str(chi2))
+    A_opt = A_opt[gi]
 
+    t_c_opt = t_c_opt[gi]
 
-def test():
+    t_s_opt = t_s_opt[gi]
+    #print('opt time stretch = '+str(t_s_opt))
+
+    if output_chi == True:
+        if output_params == True:
+            return A_opt, t_c_opt, t_s_opt, chi2
+        else:
+            return chi2
+    else:
+        if output_params == False:
+            return 0
+        else:
+            return A_opt, t_c_opt, t_s_opt
+
+def test(lc, wv_corr, z):
     '''
     Test every available template for the lowest possible chi^2
 
@@ -261,10 +339,29 @@ def test():
     dense_lc : numpy.array
         GP-interpolated LC and errors
     '''
-    return 0
+    lc = lc.T
+
+    time = lc[:,0]
+    flux = lc[:,1]
+    filts = lc[:,2]
+    errs = lc[:,3]
+    ufilts = np.unique(lc[:,2])
+    ufilts_in_angstrom = ufilts * 1000.0 + wv_corr
+
+    templates = ['1a','1bc','2p','2l']
+    chi2 = []
+    for template in templates:
+        template_to_fit = generate_template(ufilts_in_angstrom, template)
+        chi2.append(fit_template(ufilts_in_angstrom, template_to_fit, filts, wv_corr, flux, time, errs, z, output_chi = True, output_params = False))
+
+    gi = np.argmin(chi2)
+    print('chi2 for all templates: ' + str(chi2))
+    chi2 = chi2[gi]
+    best_temp = templates[gi]
+    return best_temp
 
 
-def interpolate(lc, wv_corr, sn_type, use_mean):
+def interpolate(lc, wv_corr, sn_type, use_mean, z):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -284,6 +381,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean):
     times = lc[:,0]
     fluxes = lc[:,1]
     filters = lc[:,2]
+    errs = lc[:,3]
     stacked_data = np.vstack([times, filters]).T
     ufilts = np.unique(lc[:,2])
     ufilts_in_angstrom = ufilts * 1000.0 + wv_corr
@@ -292,16 +390,15 @@ def interpolate(lc, wv_corr, sn_type, use_mean):
     dense_fluxes = np.zeros((len(lc), nfilts))
     dense_errs = np.zeros((len(lc), nfilts))
 
-    test_y=[]        #only used if a template is used, but I still need it to exist either way
+    test_y=[]        #only used if mean = True, but I still need it to exist either way
     test_times=[]
     if(use_mean == True):
         template = generate_template(ufilts_in_angstrom, sn_type)
-        f_stretch, t_shift, t_stretch = fit_template(ufilts_in_angstrom, template, filters, wv_corr, fluxes, times)
-          
+        f_stretch, t_shift, t_stretch = fit_template(ufilts_in_angstrom, template, filters, wv_corr, fluxes, times, errs, z)
         #george needs the mean function to be in this format
         class snModel(Model):
             def get_value(self, param):
-                t = param[:,0] * t_stretch + t_shift
+                t = (param[:,0] * 1./t_stretch) + t_shift
                 wv = param[:,1]
                 return np.asarray([template(*p)[0] for p in zip(t,wv)]) + f_stretch
 
@@ -464,7 +561,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data, outdir,
     else:
         plt.title(snname)
     plt.legend()
-    plt.xlabel('Time')
+    plt.xlabel('Time(days)')
     plt.ylabel('Absolute Magnitudes')
     # Uhg, magnitudes are the worst.
     plt.gca().invert_yaxis()
@@ -614,7 +711,7 @@ def write_output(lc, dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,
 def main(snfile, dm=38.38):
 
     parser = argparse.ArgumentParser(description='extrabol helpers')
-    parser.add_argument('snfile', nargs='?', default='../example/Gaia16apd.dat',
+    parser.add_argument('snfile', nargs='?', default='./extrabol/example/Gaia16apd.dat',
                     type=str, help='Give name of SN file')
     parser.add_argument('-m', '--mean', dest='mean', type=str, default='0', 
                     help="Template function for gp. Choose \'1a\',\'1bc\', \'2l\', \'2p\', or \'0\' for no template" )
@@ -623,7 +720,7 @@ def main(snfile, dm=38.38):
     parser.add_argument('-d','--dist', dest='distance', type=float,
                     help='Object luminosity distance', default=1e-5)
     parser.add_argument('-z','--redshift', dest='redshift', type=float,
-                    help='Object redshift', default = 0)
+                    help='Object redshift', default = 1.)   #redshift can't =1, this is simply a flag to be replaced later
     parser.add_argument('--dm', dest='dm', type=float, default=0,
                     help='Object distance modulus')
     parser.add_argument("--verbose", help="increase output verbosity",
@@ -633,9 +730,15 @@ def main(snfile, dm=38.38):
     parser.add_argument("--outdir", help="Output directory",dest='outdir',
                     type=str, default='./products/')
     parser.add_argument("--ebv", help="MWebv",dest='ebv',
-                    type=float, default=0.0)
+                    type=float, default=1.) #ebv won't =1, this is another flag to be replaced later
     parser.add_argument("--hostebv", help="Host B-V",dest='hostebv',
                     type=float, default=0.0)
+    parser.add_argument('-s', '--start', help = 'The time of the earliest data point to be accepted',
+                    type = float, default = 0)
+    parser.add_argument('-e', '--end', help = 'The time of the latest data point to be accepted',
+                    type = float, default = 200)
+    parser.add_argument('-snr',  help = 'The minimum signal to noise ratio to be accepted',
+                    type = float, default = 4)
     
     args = parser.parse_args()
 
@@ -646,8 +749,17 @@ def main(snfile, dm=38.38):
     except ValueError:
         sn_type = sn_type
         mean = True
-    if sn_type == 'test':
-        test()
+
+    if args.redshift == 1 or args.ebv == 1:
+        f = open(args.snfile, 'r')             #read in redshift and ebv and replace values if not specified
+        if args.redshift == 1:
+            args.redshift = float(f.readline())
+            if args.ebv == 1:
+                args.ebv = float(f.readline())
+        if args.ebv == 1:
+            args.ebv = float(f.readline())
+            args.ebv = float(f.readline())
+        f.close
 
     if (args.redshift != 0) | (args.distance != 1e-5) | (args.dm != 0):
         if args.redshift !=0 :
@@ -670,8 +782,13 @@ def main(snfile, dm=38.38):
 
     snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
 
-    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift)
-    dense_lc, test_data, test_times = interpolate(lc, wv_corr, sn_type, mean)
+    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift, args.start, args.end, args.snr)
+
+    if sn_type == 'test':
+        sn_type = test(lc, wv_corr, args.redshift)
+    print(sn_type)
+
+    dense_lc, test_data, test_times = interpolate(lc, wv_corr, sn_type, mean, args.redshift)
     lc = lc.T
 
     wvs,wvind = np.unique(lc[:,2],return_index=True)
@@ -703,4 +820,4 @@ def main(snfile, dm=38.38):
 
 
 if __name__ == "__main__":
-    main('../example/Gaia16apd.dat',  dm = 38.38)
+    main('./extrabol/example/Gaia16apd.dat',  dm = 38.38)
