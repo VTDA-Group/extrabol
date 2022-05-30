@@ -17,7 +17,7 @@ import matplotlib.cm as cm
 import sys
 from scipy import interpolate as interp
 from george.modeling import Model
-from statistics import median
+import extinction
 
 epsilon = 0.0001
 c = 2.99792458E10
@@ -61,7 +61,7 @@ def chi_square(dat, model, uncertainty):
     return chi2
 
 
-def read_in_photometry(filename, dm, redshift, start, end, snr):
+def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv):
     '''
     Read in SN file
 
@@ -106,6 +106,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr):
         wv_effs.append(wavelengthEffs[gind][0])
         width_effs.append(widthEffs[gind][0])   
         my_filters.append(ufilt) 
+    wv_effs = np.asarray(wv_effs)
 
     zpts = []
     fluxes = []
@@ -118,11 +119,15 @@ def read_in_photometry(filename, dm, redshift, start, end, snr):
             zpts.append(float(zpts_all[gind[0]][0]))
     
         flux = 10.** (mag / -2.5) * zpts[-1] * (1.+redshift)
+
         #I'm calling ths flux..but I'm going to do it in log flux space
         flux = 2.5 * (np.log10(flux) - np.log10(3631.00))
         fluxes.append(flux)
 
-    wv_effs = np.asarray(wv_effs)
+    #Remove extinction
+    ext = extinction.fm07(wv_effs, mwebv)
+    for i in np.arange(len(fluxes)):
+        fluxes[i] = fluxes[i] + 0.4 * ext[i]
 
     wv_corr = np.mean(wv_effs/(1.+redshift))
     flux_corr = np.min(fluxes) - 1.0
@@ -144,9 +149,10 @@ def read_in_photometry(filename, dm, redshift, start, end, snr):
     width_effs = width_effs[gis]
     my_filters = np.asarray(my_filters) #also wasn't an array??
     my_filters = my_filters[gis]
-    #print(phases)
-    #set the first acceptable data point to t=0
-    phases = np.asarray(phases) - np.min(phases)
+
+    #set the peak flux to t=0
+    peak_i = np.argmax(fluxes)
+    phases = np.asarray(phases) - phases[peak_i]
 
     #eliminate any data points outside of specified range (with respect to first data point)
     gis = []
@@ -734,7 +740,7 @@ def main(snfile, dm=38.38):
     parser.add_argument("--hostebv", help="Host B-V",dest='hostebv',
                     type=float, default=0.0)
     parser.add_argument('-s', '--start', help = 'The time of the earliest data point to be accepted',
-                    type = float, default = 0)
+                    type = float, default = -50)
     parser.add_argument('-e', '--end', help = 'The time of the latest data point to be accepted',
                     type = float, default = 200)
     parser.add_argument('-snr',  help = 'The minimum signal to noise ratio to be accepted',
@@ -782,7 +788,7 @@ def main(snfile, dm=38.38):
 
     snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
 
-    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift, args.start, args.end, args.snr)
+    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift, args.start, args.end, args.snr, args.ebv)
 
     if sn_type == 'test':
         sn_type = test(lc, wv_corr, args.redshift)
