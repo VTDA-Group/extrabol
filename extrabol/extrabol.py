@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from turtle import shape, width
+#from turtle import shape, width
 import numpy as np
 from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
@@ -312,10 +312,10 @@ def fit_template(wv, template_to_fit, filts, wv_corr, flux, time, errs, z, outpu
             param_chi += chi_square(dat_fluxes, m, dat_errs)
         chi2.append(param_chi)
 
-    print(chi2)
+    #print(chi2)
     gi = np.argmin(chi2)
     chi2 = chi2[gi]
-    print('Chosen chi2 for template: '+str(chi2))
+    #print('Chosen chi2 for template: '+str(chi2))
     A_opt = A_opt[gi]
 
     t_c_opt = t_c_opt[gi]
@@ -364,7 +364,7 @@ def test(lc, wv_corr, z):
         chi2.append(fit_template(ufilts_in_angstrom, template_to_fit, filts, wv_corr, flux, time, errs, z, output_chi = True, output_params = False))
 
     gi = np.argmin(chi2)
-    print('chi2 for all templates: ' + str(chi2))
+    #print('chi2 for all templates: ' + str(chi2))
     chi2 = chi2[gi]
     best_temp = templates[gi]
     return best_temp
@@ -797,7 +797,7 @@ def main(snfile, dm=38.38):
 
     if sn_type == 'test':
         sn_type = test(lc, wv_corr, args.redshift)
-    print(sn_type)
+    #print(sn_type)
 
     dense_lc, test_data, test_times = interpolate(lc, wv_corr, sn_type, mean, args.redshift)
     lc = lc.T
