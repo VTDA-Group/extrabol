@@ -61,7 +61,7 @@ def chi_square(dat, model, uncertainty):
     return chi2
 
 
-def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv):
+def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv, use_wc):
     '''
     Read in SN file
 
@@ -125,9 +125,12 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv):
         fluxes.append(flux)
 
     #Remove extinction
-    ext = extinction.fm07(wv_effs, mwebv)
+    if use_wc == True:
+        ext = extinction.fm07(wv_effs/(1.+redshift), mwebv)
+    else:
+        ext = extinction.fm07(wv_effs, mwebv)
     for i in np.arange(len(fluxes)):
-        fluxes[i] = fluxes[i] + 0.4 * ext[i]
+        fluxes[i] = fluxes[i] + ext[i]
 
     wv_corr = np.mean(wv_effs/(1.+redshift))
     flux_corr = np.min(fluxes) - 1.0
@@ -745,6 +748,8 @@ def main(snfile, dm=38.38):
                     type = float, default = 200)
     parser.add_argument('-snr',  help = 'The minimum signal to noise ratio to be accepted',
                     type = float, default = 4)
+    parser.add_argument('-wc','--wvcorr', help = 'Use the redshift-corrected wavelenghts for extinction calculations',
+                    action="store_true")
     
     args = parser.parse_args()
 
@@ -788,7 +793,7 @@ def main(snfile, dm=38.38):
 
     snname = ('.').join(args.snfile.split('.')[:-1]).split('/')[-1]
 
-    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift, args.start, args.end, args.snr, args.ebv)
+    lc,wv_corr,flux_corr, my_filters = read_in_photometry(args.snfile, args.dm, args.redshift, args.start, args.end, args.snr, args.ebv, args.wvcorr)
 
     if sn_type == 'test':
         sn_type = test(lc, wv_corr, args.redshift)
