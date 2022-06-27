@@ -312,7 +312,7 @@ def fit_template(wv, template_to_fit, filts, wv_corr, flux, time, errs, z, outpu
             param_chi += chi_square(dat_fluxes, m, dat_errs)
         chi2.append(param_chi)
 
-    #print(chi2)
+    #(chi2)
     gi = np.argmin(chi2)
     chi2 = chi2[gi]
     #print('Chosen chi2 for template: '+str(chi2))
@@ -828,7 +828,7 @@ def main(snfile, dm=38.38):
         print('Writing output to '+args.outdir)
     write_output(lc,dense_lc,Tarr,Terr_arr,Rarr,Rerr_arr,bol_lum,bol_err,my_filters,
                 snname,args.outdir)
-
+    print('job completed')
 
 if __name__ == "__main__":
     main('./extrabol/example/Gaia16apd.dat',  dm = 38.38)
