@@ -594,13 +594,13 @@ def fit_bb(dense_lc, wvs):
 
         try:
             BBparams, covar = curve_fit(bbody, wvs, flam,
-                                        p0=(9, 1e15), sigma=flam_err)
+                                        p0=(9000, 1e15), sigma=flam_err)
             # Get temperature and radius, with errors, from fit
             T1 = BBparams[0]
             T1_err = np.sqrt(np.diag(covar))[0]
             R1 = np.abs(BBparams[1])
             R1_err = np.sqrt(np.diag(covar))[1]
-        except:
+        except RuntimeWarning:
             T1 = np.nan
             R1 = np.nan
             T1_err = np.nan
@@ -652,7 +652,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     cm = plt.get_cmap('rainbow')
     wv_colors = (wvs-np.min(wvs)) / (np.max(wvs)-np.min(wvs))
 
-    # Plot interpolation, template, and error
+    # Plot interpolation, template, and error (shaded areas)
     gind = np.argsort(lc[:, 0])
     for jj in np.arange(len(wv_colors)):
         plt.plot(lc[gind, 0], -dense_lc[gind, jj, 0], color=cm(wv_colors[jj]),
@@ -679,8 +679,6 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
         plt.plot(x, y, 'o', color=cm(wv_colors[i]))
         plt.errorbar(x, y, yerr=yerr, fmt='none', color=cm(wv_colors[i]))
 
-
-
     if mean:
         plt.title(snname + ' using sn' + sn_type + ' template')
     else:
@@ -690,13 +688,13 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     plt.ylabel('Absolute Magnitudes')
     # Uhg, magnitudes are the worst.
     plt.gca().invert_yaxis()
-    plt.savefig(outdir+snname + '_gp.png')
+    plt.savefig(outdir + snname + '_' + mean + '_gp.png')
     plt.clf()
 
     return 1
 
 
-def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
+def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, mean):
     '''
     Plot the BB temperature and radius as a function of time
 
@@ -735,13 +733,13 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir):
     axarr[1].set_xlabel('Time (Days)')
     axarr[0].set_title(snname)
 
-    plt.savefig(outdir + snname + '_bb_ev.png')
+    plt.savefig(outdir + snname + '_' + mean + '_bb_ev.png')
     plt.clf()
 
     return 1
 
 
-def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
+def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, mean):
     '''
     Plot the BB bolometric luminosity as a function of time
 
@@ -768,7 +766,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
     plt.xlabel('Time (Days)')
     plt.ylabel('Bolometric Luminosity')
     plt.yscale('log')
-    plt.savefig(outdir + snname + '_bb_bol.png')
+    plt.savefig(outdir + snname + '_' + mean + '_bb_bol.png')
     plt.clf()
 
     return 1
@@ -776,7 +774,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir):
 
 def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                  bol_lum, bol_err, my_filters,
-                 snname, outdir):
+                 snname, outdir, mean):
     '''
     Write out the interpolated LC and BB information
 
@@ -831,7 +829,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                   meta={'name': 'first table'})
 
     format_dict = {head: '%0.3f' for head in table_header}
-    ascii.write(table, outdir + snname + '.txt', formats=format_dict,
+    ascii.write(table, outdir + snname + '_' + mean + '.txt', formats=format_dict,
                 overwrite=True)
 
     return 1
