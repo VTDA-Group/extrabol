@@ -669,21 +669,8 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     # Plot original data points and error bars
     for i, filt in enumerate(np.unique(lc[:, 2])):
         gind = np.where(lc[:, 2] == filt)
-        '''
-        print(np.shape(lc[gind, 0]))
-        print(type(lc[gind, 0]))
-        print(lc[gind, 0])
-        print(np.shape(-(lc[gind, 1] + flux_corr)))
-        print(type(-(lc[gind, 1] + flux_corr)))
-        print(-(lc[gind, 1] + flux_corr))
-        print(np.shape(lc[gind, 3]))
-        print(type(lc[gind, 3]))
-        print(lc[gind, 3])
-        '''
         x = lc[gind, 0]
-        print(x)
         x = x.flatten()
-        print(x)
         y = -lc[gind, 1] - flux_corr
         y = y.flatten()
         yerr = lc[gind, 3]
