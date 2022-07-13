@@ -688,13 +688,13 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     plt.ylabel('Absolute Magnitudes')
     # Uhg, magnitudes are the worst.
     plt.gca().invert_yaxis()
-    plt.savefig(outdir + snname + '_' + mean + '_gp.png')
+    plt.savefig(outdir + snname + '_' + sn_type + '_gp.png')
     plt.clf()
 
     return 1
 
 
-def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, mean):
+def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     '''
     Plot the BB temperature and radius as a function of time
 
@@ -733,13 +733,13 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, mean):
     axarr[1].set_xlabel('Time (Days)')
     axarr[0].set_title(snname)
 
-    plt.savefig(outdir + snname + '_' + mean + '_bb_ev.png')
+    plt.savefig(outdir + snname + '_' + sn_type + '_bb_ev.png')
     plt.clf()
 
     return 1
 
 
-def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, mean):
+def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     '''
     Plot the BB bolometric luminosity as a function of time
 
@@ -766,7 +766,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, mean):
     plt.xlabel('Time (Days)')
     plt.ylabel('Bolometric Luminosity')
     plt.yscale('log')
-    plt.savefig(outdir + snname + '_' + mean + '_bb_bol.png')
+    plt.savefig(outdir + snname + '_' + sn_type + '_bb_bol.png')
     plt.clf()
 
     return 1
@@ -774,7 +774,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, mean):
 
 def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                  bol_lum, bol_err, my_filters,
-                 snname, outdir, mean):
+                 snname, outdir, sn_type):
     '''
     Write out the interpolated LC and BB information
 
@@ -829,7 +829,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                   meta={'name': 'first table'})
 
     format_dict = {head: '%0.3f' for head in table_header}
-    ascii.write(table, outdir + snname + '_' + mean + '.txt', formats=format_dict,
+    ascii.write(table, outdir + snname + '_' + sn_type + '.txt', formats=format_dict,
                 overwrite=True)
 
     return 1
@@ -966,13 +966,13 @@ def main(snfile, dm=38.38):
             print('Making plots in ' + args.outdir)
         plot_gp(lc, dense_lc, snname, flux_corr, ufilts, wvs, test_data,
                 args.outdir, sn_type, test_times, mean, args.template)
-        plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, args.outdir)
-        plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir)
+        plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, args.outdir, sn_type)
+        plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir, sn_type)
 
     if args.verbose:
         print('Writing output to ' + args.outdir)
     write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
-                 bol_lum, bol_err, my_filters, snname, args.outdir)
+                 bol_lum, bol_err, my_filters, snname, args.outdir, sn_type)
     print('job completed')
 
 
