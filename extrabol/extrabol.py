@@ -686,7 +686,6 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     plt.legend()
     plt.xlabel('Time(days)')
     plt.ylabel('Absolute Magnitudes')
-    # Uhg, magnitudes are the worst.
     plt.gca().invert_yaxis()
     plt.savefig(outdir + snname + '_' + sn_type + '_gp.png')
     plt.clf()
@@ -714,6 +713,8 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
         SN Name
     outdir : string
         Output directory
+    sn_type : string
+        The type of sn template used for the gp
 
     Output
     ------
@@ -755,6 +756,8 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
         SN Name
     outdir : string
         Output directory
+    sn_type : string
+        The type of sn template used in the gp
 
     Output
     ------
@@ -802,6 +805,8 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
         SN Name
     outdir : string
         Output directory
+    sn_type : string
+        Type of sn template used for the gp
 
     Output
     ------
@@ -837,6 +842,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
 
 def main(snfile, dm=38.38):
 
+    # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',
                         default='./extrabol/example/Gaia16apd.dat',
@@ -887,6 +893,7 @@ def main(snfile, dm=38.38):
 
     args = parser.parse_args()
 
+    # We need to know if an sn template is being used for gp
     sn_type = args.mean
     try:
         sn_type = int(sn_type)
@@ -895,6 +902,8 @@ def main(snfile, dm=38.38):
         sn_type = sn_type
         mean = True
 
+    # If redshift or ebv aren't specified by the user,
+    # we read them in from the file here
     if args.redshift == 1 or args.ebv == 1:
         # Read in redshift and ebv and replace values if not specified
         f = open(args.snfile, 'r')
@@ -907,6 +916,8 @@ def main(snfile, dm=38.38):
             args.ebv = float(f.readline())
         f.close
 
+    # Solve for redshift, distance, and/or dm if possible
+    # if not, assume that data is already in absolute magnitudes
     if args.redshift != 0 or args.distance != 1e-5 or args.dm != 0:
         if args.redshift != 0:
             args.distance = cosmo.luminosity_distance(args.redshift).value
@@ -921,6 +932,7 @@ def main(snfile, dm=38.38):
     elif args.verbose:
         print('Assuming absolute magnitudes.')
 
+    # Make sure outdir name is formatted correctly
     if args.outdir[-1] != '/':
         args.outdir += '/'
 
@@ -937,6 +949,7 @@ def main(snfile, dm=38.38):
                                                             args.ebv,
                                                             args.wvcorr)
 
+    # Test which template fits the data best
     if sn_type == 'test':
         sn_type = test(lc, wv_corr, args.redshift)
     if args.verbose:
@@ -951,7 +964,8 @@ def main(snfile, dm=38.38):
     my_filters = np.asarray(my_filters)
     ufilts = my_filters[wvind]
 
-    dense_lc[:, :, 0] += flux_corr  # This is now in AB mags
+    # Converts to AB magnitudes
+    dense_lc[:, :, 0] += flux_corr
 
     Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs)
 
