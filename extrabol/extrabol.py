@@ -593,7 +593,7 @@ def fit_bb(dense_lc, wvs):
         flam_err = fnu_err*c / (wvs*ang_to_cm)**2
 
         try:
-            BBparams, covar = curve_fit(bbody, wvs, flam,
+            BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
                                         p0=(9000, 1e15), sigma=flam_err)
             # Get temperature and radius, with errors, from fit
             T1 = BBparams[0]
@@ -687,7 +687,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     plt.xlabel('Time(days)')
     plt.ylabel('Absolute Magnitudes')
     plt.gca().invert_yaxis()
-    plt.savefig(outdir + snname + '_' + sn_type + '_gp.png')
+    plt.savefig(outdir + snname + '_' + str(sn_type) + '_gp.png')
     plt.clf()
 
     return 1
@@ -734,7 +734,7 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     axarr[1].set_xlabel('Time (Days)')
     axarr[0].set_title(snname)
 
-    plt.savefig(outdir + snname + '_' + sn_type + '_bb_ev.png')
+    plt.savefig(outdir + snname + '_' + str(sn_type) + '_bb_ev.png')
     plt.clf()
 
     return 1
@@ -769,7 +769,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     plt.xlabel('Time (Days)')
     plt.ylabel('Bolometric Luminosity')
     plt.yscale('log')
-    plt.savefig(outdir + snname + '_' + sn_type + '_bb_bol.png')
+    plt.savefig(outdir + snname + '_' + str(sn_type) + '_bb_bol.png')
     plt.clf()
 
     return 1
@@ -834,7 +834,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                   meta={'name': 'first table'})
 
     format_dict = {head: '%0.3f' for head in table_header}
-    ascii.write(table, outdir + snname + '_' + sn_type + '.txt', formats=format_dict,
+    ascii.write(table, outdir + snname + '_' + str(sn_type) + '.txt', formats=format_dict,
                 overwrite=True)
 
     return 1
