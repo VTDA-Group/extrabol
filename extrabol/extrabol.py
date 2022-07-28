@@ -991,4 +991,7 @@ def main(snfile, dm=38.38):
 
 
 if __name__ == "__main__":
-    main('./extrabol/example/Gaia16apd.dat',  dm=38.38)
+    main()
+    #if everything breaks add:
+    #'./extrabol/example/Gaia16apd.dat',  dm=38.38
+    #inside main()
