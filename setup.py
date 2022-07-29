@@ -10,7 +10,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as readme_file:
 setuptools.setup(
     name="extrabol", # Replace with your own username
     version="0.0.10",
-    py_modules=['extrabol', 'snana2extrabol'],
+    py_modules=['extrabol.extrabol', 'extrabol.snana2extrabol'],
     author="Ian M. Thornton",
     author_email="iot5037@psu.edu",
     description="Estimate SN bolometric light curves",
