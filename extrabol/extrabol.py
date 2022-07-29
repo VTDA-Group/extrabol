@@ -266,7 +266,7 @@ def generate_template(filter_wv, sn_type):
     temp_f_lambda = temp_f_lambda[gis]
 
     # Remove initial rise
-    # If the data point is very dim, it likely has a high snr
+    # If the data point is very dim, it likely has a low snr
     gis = []
     for i in np.arange(len(temp_times)):
         if temp_times[i] >= 1.:
@@ -274,6 +274,10 @@ def generate_template(filter_wv, sn_type):
     temp_times = temp_times[gis]
     temp_wavelength = temp_wavelength[gis]
     temp_f_lambda = temp_f_lambda[gis]
+
+    #set peak flux to t=0
+    peak_i = np.argmax(temp_f_lambda)
+    temp_times = np.asarray(temp_times) - temp_times[peak_i]
 
     # RectBivariateSpline requires
     # that x and y are 1-d arrays, strictly ascending
