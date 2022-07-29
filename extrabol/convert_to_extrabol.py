@@ -71,3 +71,6 @@ def convert():
             print(str(count) + ' out of 5243')
 
         return 0
+
+if __name__ == "__convert__":
+    convert()
