@@ -840,12 +840,12 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     return 1
 
 
-def main(snfile, dm=38.38):
+def main():
 
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',
-                        default='./extrabol/example/Gaia16apd.dat',
+                        default='./extrabol/example/PSc000174_extrabol.dat',
                         type=str, help='Give name of SN file')
     parser.add_argument('-m', '--mean', dest='mean', type=str, default='0',
                         help="Template function for gp.\
