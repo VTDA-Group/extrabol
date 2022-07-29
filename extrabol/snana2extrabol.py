@@ -65,6 +65,10 @@ def convert():
         sn_name = filename.replace('PS1_PS1MD_', '')
         sn_name = sn_name.replace('.snana.dat', '')
         header = str(redshift) +'\n'+ str(mwebv)
+
+        if not os.path.exists(args.extrabol_out):
+            os.makedirs(args.args.extrabol_out)
+
         np.savetxt(args.extrabol_out + sn_name + '_extrabol.dat', extrabol, fmt = '%s', header = header, comments = '')
         count = count +1
         if count%500 == 0:
