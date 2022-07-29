@@ -67,7 +67,7 @@ def convert():
         header = str(redshift) +'\n'+ str(mwebv)
 
         if not os.path.exists(args.extrabol_out):
-            os.makedirs(args.args.extrabol_out)
+            os.makedirs(args.extrabol_out)
 
         np.savetxt(args.extrabol_out + sn_name + '_extrabol.dat', extrabol, fmt = '%s', header = header, comments = '')
         count = count +1
