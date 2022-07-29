@@ -1,6 +1,6 @@
 Get bolometric estimates of SNe
 
-Note: You need the absolute LATEST version of astroquery to work with SVO
+Note: You need the absolute LATEST version of astroquery to work with SVO  
 Author: Ian Thornton
 
 Install with pip:
