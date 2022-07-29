@@ -26,7 +26,7 @@ setuptools.setup(
     entry_points = {
             'console_scripts': [
                     'extrabol = extrabol.extrabol.extrabol:main',
-                    'snana2extrabol = extrabol.extrabol.convert_to_extrabol:convert'
+                    'snana2extrabol = extrabol.extrabol.snana2extrabol:convert'
                 ]},
     python_requires='>=3.6'
 )
