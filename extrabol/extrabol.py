@@ -482,9 +482,10 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     ufilts = np.unique(lc[:, 2])
     ufilts_in_angstrom = ufilts*1000.0 + wv_corr
     nfilts = len(ufilts)
-    x_pred = np.zeros((len(lc)*nfilts, 2))
-    dense_fluxes = np.zeros((len(lc), nfilts))
-    dense_errs = np.zeros((len(lc), nfilts))
+    x_pred = np.zeros((int((np.max(times)-np.min(times))+2)*nfilts, 2))
+    #x_pred = np.zeros((len(lc)*nfilts, 2))
+    dense_fluxes = np.zeros((int((np.max(times)-np.min(times))+2), nfilts))
+    dense_errs = np.zeros((int((np.max(times)-np.min(times))+2), nfilts))
 
     # test_y is only used if mean = True
     # but I still need it to exist either way
@@ -540,7 +541,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     gp.set_parameter_vector(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
-    for jj, time in enumerate(lc[:, 0]):
+    for jj, time in enumerate(np.arange(int(np.min(times)), int(np.max(times))+2)):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 0] = [time] * nfilts
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
@@ -651,23 +652,23 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     Output
     ------
     '''
+    plot_times = np.arange(int(np.min(lc[:,0])), (int(np.max(lc[:,0]))+2))
 
     # Import a color map to make the plots look pretty
     cm = plt.get_cmap('rainbow')
     wv_colors = (wvs-np.min(wvs)) / (np.max(wvs)-np.min(wvs))
 
     # Plot interpolation, template, and error (shaded areas)
-    gind = np.argsort(lc[:, 0])
     for jj in np.arange(len(wv_colors)):
-        plt.plot(lc[gind, 0], -dense_lc[gind, jj, 0], color=cm(wv_colors[jj]),
+        plt.plot(plot_times, -dense_lc[:, jj, 0], color=cm(wv_colors[jj]),
                  label=my_filters[jj].split('/')[-1])
         if mean:
             if show_template:
                 plt.plot(test_times, -(test_data[jj, :] + flux_corr), '--',
                          color=cm(wv_colors[jj]))  # Template curves
-        plt.fill_between(lc[gind, 0],
-                         -dense_lc[gind, jj, 0] - dense_lc[gind, jj, 1],
-                         -dense_lc[gind, jj, 0] + dense_lc[gind, jj, 1],
+        plt.fill_between(plot_times,
+                         -dense_lc[:, jj, 0] - dense_lc[:, jj, 1],
+                         -dense_lc[:, jj, 0] + dense_lc[:, jj, 1],
                          color=cm(wv_colors[jj]), alpha=0.2)
 
     # Plot original data points and error bars
@@ -723,15 +724,16 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     Output
     ------
     '''
+    plot_times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
 
     fig, axarr = plt.subplots(2, 1, sharex=True)
-    axarr[0].plot(lc[:, 0], Tarr / 1.e3, 'ko')
-    axarr[0].errorbar(lc[:, 0], Tarr / 1.e3, yerr=Terr_arr / 1.e3,
+    axarr[0].plot(plot_times, Tarr / 1.e3, 'ko')
+    axarr[0].errorbar(plot_times, Tarr / 1.e3, yerr=Terr_arr / 1.e3,
                       fmt='none', color='k')
     axarr[0].set_ylabel('Temp. (1000 K)')
 
-    axarr[1].plot(lc[:, 0], Rarr / 1e15, 'ko')
-    axarr[1].errorbar(lc[:, 0], Rarr / 1e15, yerr=Rerr_arr / 1e15,
+    axarr[1].plot(plot_times, Rarr / 1e15, 'ko')
+    axarr[1].errorbar(plot_times, Rarr / 1e15, yerr=Rerr_arr / 1e15,
                       fmt='none', color='k')
     axarr[1].set_ylabel(r'Radius ($10^{15}$ cm)')
 
@@ -766,8 +768,10 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     Output
     ------
     '''
-    plt.plot(lc[:, 0], bol_lum, 'ko')
-    plt.errorbar(lc[:, 0], bol_lum, yerr=bol_err, fmt='none', color='k')
+    plot_times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
+
+    plt.plot(plot_times, bol_lum, 'ko')
+    plt.errorbar(plot_times, bol_lum, yerr=bol_err, fmt='none', color='k')
 
     plt.title(snname)
     plt.xlabel('Time (Days)')
@@ -816,7 +820,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     ------
     '''
 
-    times = lc[:, 0]
+    times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
     dense_lc = np.hstack((np.reshape(-times, (len(times), 1)), dense_lc))
     tabledata = np.stack((Tarr / 1e3, Terr_arr / 1e3, Rarr / 1e15,
