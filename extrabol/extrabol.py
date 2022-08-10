@@ -17,6 +17,8 @@ import sys
 from scipy import interpolate as interp
 from george.modeling import Model
 import extinction
+import emcee
+import corner
 
 # Define a few important constants that will be used later
 epsilon = 0.0001
@@ -597,6 +599,56 @@ def fit_bb(dense_lc, wvs):
         flam = fnu*c / (wvs*ang_to_cm)**2
         flam_err = fnu_err*c / (wvs*ang_to_cm)**2
 
+        def log_likelihood(params, lam, f, f_err):
+            T, R = params
+            model = bbody(lam, T, R)
+            return -np.sum((f-model)**2/(f_err**2))
+        def log_prior(params):
+            T, R = params
+            if T > 0 and R > 0:
+                return 0.
+            return -np.inf
+        def log_probability(params, lam, f, f_err):
+            lp = log_prior(params)
+            if not np.isfinite(lp):
+                return -np.inf
+            return lp + log_likelihood(params, lam, f, f_err)
+
+        nwalkers = 16
+        ndim = 2
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[wvs,flam,flam_err])
+        T0 = 9000 + 1000*np.random.rand(nwalkers)
+        R0 = 1e15 + 1e14*np.random.rand(nwalkers)
+        p0 = np.vstack([T0,R0])
+        p0 = p0.T
+
+        burn_in_state = sampler.run_mcmc(p0, 100)
+        sampler.reset()
+        sampler.run_mcmc(burn_in_state, 4000)
+
+        fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
+        samples = sampler.get_chain()
+        labels = ["T", "R"]
+        for j in range(ndim):
+            ax = axes[j]
+            ax.plot(samples[:, :, j], "k", alpha=0.3)
+            ax.set_xlim(0, len(samples))
+            ax.set_ylabel(labels[j])
+            ax.yaxis.set_label_coords(-0.1, 0.5)
+
+        axes[-1].set_xlabel("step number");
+        plt.savefig('./emcee_test/test' + str(i) + '.png')
+        plt.clf()
+
+        flat_samples = sampler.get_chain(discard=100, thin=1, flat=True)
+
+        fig = corner.corner(
+            flat_samples, labels=labels
+        );
+        plt.savefig('./emcee_test/test_corner' + str(i) + '.png')
+        plt.clf()
+
+        '''
         try:
             BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
                                         p0=(9000, 1e15), sigma=flam_err)
@@ -610,11 +662,11 @@ def fit_bb(dense_lc, wvs):
             R1 = np.nan
             T1_err = np.nan
             R1_err = np.nan
-
-        T_arr[i] = T1
-        R_arr[i] = R1
-        Terr_arr[i] = T1_err
-        Rerr_arr[i] = R1_err
+        '''
+        T_arr[i] = np.median(flat_samples[:,0])
+        R_arr[i] = np.median(flat_samples[:,1])
+        Terr_arr[i] = np.std(flat_samples[:,0])
+        Rerr_arr[i] = np.std(flat_samples[:,1])
 
     return T_arr, R_arr, Terr_arr, Rerr_arr
 
@@ -727,14 +779,18 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     plot_times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
 
     fig, axarr = plt.subplots(2, 1, sharex=True)
-    axarr[0].plot(plot_times, Tarr / 1.e3, 'ko')
-    axarr[0].errorbar(plot_times, Tarr / 1.e3, yerr=Terr_arr / 1.e3,
-                      fmt='none', color='k')
+    #axarr[0].plot(plot_times, Tarr / 1.e3, 'ko')
+    axarr[0].plot(plot_times, Tarr / 1.e3, color='k')
+    axarr[0].fill_between(plot_times, Tarr/1.e3 - Terr_arr/1.e3, Tarr/1.e3 + Terr_arr/1.e3, color='k', alpha=0.2)
+    #axarr[0].errorbar(plot_times, Tarr / 1.e3, yerr=Terr_arr / 1.e3,
+    #                  fmt='none', color='k')
     axarr[0].set_ylabel('Temp. (1000 K)')
 
-    axarr[1].plot(plot_times, Rarr / 1e15, 'ko')
-    axarr[1].errorbar(plot_times, Rarr / 1e15, yerr=Rerr_arr / 1e15,
-                      fmt='none', color='k')
+    #axarr[1].plot(plot_times, Rarr / 1e15, 'ko')
+    axarr[1].plot(plot_times, Rarr / 1e15, color='k')
+    axarr[1].fill_between(plot_times, Rarr/1e15 - Rerr_arr/1e15, Rarr/1e15 + Rerr_arr/1e15, color='k', alpha=0.2)
+    #axarr[1].errorbar(plot_times, Rarr / 1e15, yerr=Rerr_arr / 1e15,
+    #                  fmt='none', color='k')
     axarr[1].set_ylabel(r'Radius ($10^{15}$ cm)')
 
     axarr[1].set_xlabel('Time (Days)')
