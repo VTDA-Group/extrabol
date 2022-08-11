@@ -625,7 +625,7 @@ def fit_bb(dense_lc, wvs):
         burn_in_state = sampler.run_mcmc(p0, 100)
         sampler.reset()
         sampler.run_mcmc(burn_in_state, 4000)
-
+        '''
         fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
         samples = sampler.get_chain()
         labels = ["T", "R"]
@@ -639,15 +639,15 @@ def fit_bb(dense_lc, wvs):
         axes[-1].set_xlabel("step number");
         plt.savefig('./emcee_test/test' + str(i) + '.png')
         plt.clf()
-
+        '''
         flat_samples = sampler.get_chain(discard=100, thin=1, flat=True)
-
+        '''
         fig = corner.corner(
             flat_samples, labels=labels
         );
         plt.savefig('./emcee_test/test_corner' + str(i) + '.png')
         plt.clf()
-
+        '''
         '''
         try:
             BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
@@ -665,8 +665,8 @@ def fit_bb(dense_lc, wvs):
         '''
         T_arr[i] = np.median(flat_samples[:,0])
         R_arr[i] = np.median(flat_samples[:,1])
-        Terr_arr[i] = np.std(flat_samples[:,0])
-        Rerr_arr[i] = np.std(flat_samples[:,1])
+        Terr_arr[i] = (np.percentile(flat_samples[:,0], 84)-np.percentile(flat_samples[:,0], 16)) / 2.
+        Rerr_arr[i] = (np.percentile(flat_samples[:,1], 84)-np.percentile(flat_samples[:,1], 16)) / 2.
 
     return T_arr, R_arr, Terr_arr, Rerr_arr
 

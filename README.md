@@ -58,6 +58,18 @@ Optional Arguments:
 -wc, --wvcorr
     Use the redshift-corrected wavelength values for extinction calculations
 ```
+# Input Files
+
+Inputs to extrabol must be .dat files that conform to the following format.
+
+The first two lines must contain redshift and MWebv respectively. If these values are unknown, simply put 0.0.
+The following lines contain observational data in 5 columns as shown below:
+
+```
+Time(MJD)   Apparent Magnitude   Error(in magnitudes)   Filter SVO ID   Type of magnitude (AB or Vega)
+```
+An example input file can be found under extrabol/example
+
 # Example input
 
 ```python
