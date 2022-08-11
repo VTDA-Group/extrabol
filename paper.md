@@ -19,7 +19,7 @@ bibliography: paper.bib
 
 # Summary
 
-When an observer wishes to take measurements of a supernova, or any other astronomical event, they have a couple options. The first option is using a spectrometer which spreads out the incoming photons into a spectrum of wavelengths. This method yields a lot of useful information, but it takes a significant amount of time. A quicker (and thus cheaper) option is to utilize filters to observe the event in a handful of finite wavelength windows over time. This yields broadband photometric data. The goal of `extrabol` is to extract valuable information from this broadband data in a way that is quick and user-friendly. It does this in 3 main steps:
+When analyzing a supernova, or any other transient event, a key piece of information is the total amount of energy released as light. This is represented by the bolometric light curve. Calculating the bolometric light curve is step #1 in understanding the underlying physics of such an event. If one can obtain a spectrum, finding the bolometric luminosity is as simple as integrating under the spectrum. Unfortunately, this is a time consuming task, and in a lot of cases, the only data that is available is at discrete wavelengths. The main goal of `extrabol` is to extract this key information from observations made through discrete filters. It does this in 3 main steps:
 
 1. Read in a data file holding observations of a supernova or other transient event over time, through any number of filters.
 
