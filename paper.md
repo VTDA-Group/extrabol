@@ -19,46 +19,22 @@ bibliography: paper.bib
 
 # Summary
 
+When an observer wishes to take measurements of a supernova, or any other astronomical event, they have a couple options. The first option is using a spectrometer which spreads out the incoming photons into a spectrum of wavelengths. This method yields a lot of useful information, but it takes a significant amount of time. A quicker (and thus cheaper) option is to utilize filters to observe the event in a handful of finite wavelength windows over time. This yields broadband photometric data. The goal of `extrabol` is to extract valuable information from this broadband data in a way that is quick and user-friendly. It does this in 3 main steps:
+
+1. Read in a data file holding observations of a supernova or other transient event over time, through any number of filters.
+
+2. Interpolate this data using a Gaussian Process, a non-physical, statistical model utilizing covariance.
+
+3. Fit a series of blackbody light curves to the interpolated data to estimate the bolometric luminosity, temperature, and radius of the transient over time.
+
+`extrabol` also includes other auxiliary functions such as de-redshifting data, correcting for extinction due to galactic dust, and even converting other common data files to an extrabol-compatible format.
+
+Because not all observations are the same, `extrabol` was built with flexibility in mind. If desired, the user can specify a known redshift, a known amount of extinction, a supernova template to assist the Gaussian Process, a minimum signal-to-noise ratio for observations, the time window to be analyzed, and more, as specified in the README. In addition to the flexibility that allows `extrabol` to work for any single object or event, it can easily be run on large batches.  
 
 
 # Statement of need
 
-`Gala` is an Astropy-affiliated Python package for galactic dynamics. Python
-enables wrapping low-level languages (e.g., C) for speed without losing
-flexibility or ease-of-use in the user-interface. The API for `Gala` was
-designed to provide a class-based and user-friendly interface to fast (C or
-Cython-optimized) implementations of common operations such as gravitational
-potential and force evaluation, orbit integration, dynamical transformations,
-and chaos indicators for nonlinear dynamics. `Gala` also relies heavily on and
-interfaces well with the implementations of physical units and astronomical
-coordinate systems in the `Astropy` package [@astropy] (`astropy.units` and
-`astropy.coordinates`).
-
-`Gala` was designed to be used by both astronomical researchers and by
-students in courses on gravitational dynamics or astronomy. It has already been
-used in a number of scientific publications [@Pearson:2017] and has also been
-used in graduate courses on Galactic dynamics to, e.g., provide interactive
-visualizations of textbook material [@Binney:2008]. The combination of speed,
-design, and support for Astropy functionality in `Gala` will enable exciting
-scientific explorations of forthcoming data releases from the *Gaia* mission
-[@gaia] by students and experts alike.
-
-# Mathematics
-
-Single dollars ($) are required for inline mathematics e.g. $f(x) = e^{\pi/x}$
-
-Double dollars make self-standing equations:
-
-$$\Theta(x) = \left\{\begin{array}{l}
-0\textrm{ if } x < 0\cr
-1\textrm{ else}
-\end{array}\right.$$
-
-You can also use plain \LaTeX for equations
-\begin{equation}\label{eq:fourier}
-\hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
-\end{equation}
-and refer to \autoref{eq:fourier} from text.
+Currently, about [FIND FIGURE] supernovae are observed every year. These observations must be processed by astronomers. Some tools exist already to do this such as [DISCUSS AVAILABLE OPTIONS]. In 2024, the Vera Rubin Observatory in Chile is expected to begin its Legacy Survey of Space and Time (LSST) which could increase supernovae observations by [FIND FIGURE]. Such an increase in data generates a need for new, more efficient tools to process said data. This was the motivation behind `extrabol`. When run in parallel, `extrabol` has the capability of distilling thousands of data files into useable plots in just a couple of hours [CONFIRM THIS CLAIM]. If an object of interest is found from this distillation, `extrabol` retains the flexibility to conform to unique cases.
 
 # Citations
 
