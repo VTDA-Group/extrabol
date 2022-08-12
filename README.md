@@ -57,6 +57,10 @@ Optional Arguments:
 
 -wc, --wvcorr
     Use the redshift-corrected wavelength values for extinction calculations
+
+--use_mcmc
+    Use a Markov Chain Monte Carlo to fit black bodies instead of curve_fit.
+    This provides better error estimates but takes much longer.
 ```
 # Input Files
 
