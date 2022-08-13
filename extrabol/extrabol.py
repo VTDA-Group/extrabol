@@ -20,7 +20,7 @@ import extinction
 import emcee
 
 # Define a few important constants that will be used later
-epsilon = 0.0001
+epsilon = 0.001
 c = 2.99792458E10
 sigsb = 5.6704e-5  # erg / cm^2 / s / K^4
 h = 6.62607E-27
@@ -483,9 +483,9 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     ufilts = np.unique(lc[:, 2])
     ufilts_in_angstrom = ufilts*1000.0 + wv_corr
     nfilts = len(ufilts)
-    x_pred = np.zeros((int((np.max(times)-np.min(times))+2)*nfilts, 2))
-    dense_fluxes = np.zeros((int((np.max(times)-np.min(times))+2), nfilts))
-    dense_errs = np.zeros((int((np.max(times)-np.min(times))+2), nfilts))
+    x_pred = np.zeros((int((np.ceil(np.max(times))-np.floor(np.min(times)))+1)*nfilts, 2))
+    dense_fluxes = np.zeros((int((np.ceil(np.max(times))-np.floor(np.min(times)))+1), nfilts))
+    dense_errs = np.zeros((int((np.ceil(np.max(times))-np.floor(np.min(times)))+1), nfilts))
 
     # test_y is only used if mean = True
     # but I still need it to exist either way
@@ -541,7 +541,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     gp.set_parameter_vector(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
-    for jj, time in enumerate(np.arange(int(np.min(times)), int(np.max(times))+2)):
+    for jj, time in enumerate(np.arange(int(np.floor(np.min(times))), int(np.ceil(np.max(times)))+1)):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 0] = [time] * nfilts
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
@@ -551,6 +551,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     # Populate dense_lc with newly gp-predicted values
     for jj in np.arange(nfilts):
         gind = np.where(np.abs(x_pred[:, 1]-ufilts[jj]) < epsilon)[0]
+        print(np.shape(gind),np.shape(dense_fluxes[:,int(jj)]))
         dense_fluxes[:, int(jj)] = pred[gind]
         dense_errs[:, int(jj)] = np.sqrt(pred_var[gind])
     dense_lc = np.dstack((dense_fluxes, dense_errs))
@@ -683,7 +684,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     Output
     ------
     '''
-    plot_times = np.arange(int(np.min(lc[:,0])), (int(np.max(lc[:,0]))+2))
+    plot_times = np.arange(int(np.floor(np.min(lc[:,0]))), (int(np.ceil(np.max(lc[:,0])))+1))
 
     # Import a color map to make the plots look pretty
     cm = plt.get_cmap('rainbow')
@@ -755,7 +756,7 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     Output
     ------
     '''
-    interp_times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
+    interp_times = np.arange(int(np.floor(np.min(lc[:,0]))), int(np.ceil(np.max(lc[:,0])))+1)
     fig, axarr = plt.subplots(2, 1, sharex=True)
 
     axarr[0].plot(interp_times, Tarr / 1.e3, color='k')
@@ -797,7 +798,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     Output
     ------
     '''
-    plot_times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
+    plot_times = np.arange(int(np.floor(np.min(lc[:,0]))), int(np.ceil(np.max(lc[:,0])))+1)
 
     plt.plot(plot_times, bol_lum, color='k')
     plt.fill_between(plot_times, bol_lum-bol_err, bol_lum+bol_err, color='k', alpha=0.2)
@@ -849,7 +850,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     ------
     '''
 
-    times = np.arange(int(np.min(lc[:,0])), int(np.max(lc[:,0]))+2)
+    times = np.arange(int(np.floor(np.min(lc[:,0]))), int(np.ceil(np.max(lc[:,0])))+1)
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
     dense_lc = np.hstack((np.reshape(-times, (len(times), 1)), dense_lc))
     tabledata = np.stack((Tarr / 1e3, Terr_arr / 1e3, Rarr / 1e15,
