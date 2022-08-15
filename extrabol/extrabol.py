@@ -927,9 +927,10 @@ def main():
                         help='Use the redshift-corrected \
                             wavelenghts for extinction calculations',
                         action="store_true")
-    parser.add_argument('--use_mcmc', help='Use a Monte Carlo Markov \
-                        Chain to fit BBs instead of curve_fit. This will \
-                        take longer, but gives better error estimates',
+    parser.add_argument('--use_mcmc',
+                        help='Use a Markov Chain Monte Carlo \
+                              to fit BBs instead of curve_fit. This will \
+                              take longer, but gives better error estimates',
                         default=False, action="store_true")
 
     args = parser.parse_args()
@@ -1034,6 +1035,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    #if everything breaks add:
-    #'./extrabol/example/Gaia16apd.dat',  dm=38.38
-    #inside main()
