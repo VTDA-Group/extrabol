@@ -1,0 +1,6 @@
+include README.md
+include example\PSc000174_extrabol
+include template\smoothed_sn1a.npz
+include template\smoothed_sn1bc.npz
+include template\smoothed_sn2l.npz
+include template\smoothed_sn2p.npz
