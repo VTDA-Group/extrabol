@@ -1,9 +1,0 @@
-numpy>=1.19.1
-astropy>=4.0.1
-astroquery>=0.4.2
-matplotlib>=3.3.0
-george>=0.3.1
-scipy>=1.9.0
-argparse>=1.4.0
-extinction>=0.4.1
-emcee>=3.1.2
