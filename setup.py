@@ -14,7 +14,7 @@ with open(os.path.join(here, 'requirements.txt')) as requirements_file:
 
 setuptools.setup(
     name="extrabol", # Replace with your own username
-    version="0.0.20",
+    version="0.0.30",
     py_modules=['extrabol', 'snana2extrabol'],
     author="Ian M. Thornton",
     author_email="iot5037@psu.edu",
