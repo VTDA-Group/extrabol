@@ -1,9 +1,0 @@
-numpy
-astropy
-astroquery
-matplotlib
-george
-scipy
-argparse
-extinction
-emcee

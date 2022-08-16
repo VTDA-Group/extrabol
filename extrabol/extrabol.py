@@ -232,7 +232,7 @@ def generate_template(filter_wv, sn_type):
         interpolated template
     '''
 
-    template = np.load('./extrabol/template/smoothed_sn' + sn_type + '.npz')
+    template = np.load('./template/smoothed_sn' + sn_type + '.npz')
     temp_times = template['time']
     temp_wavelength = template['wavelength']
     temp_f_lambda = template['f_lambda']
@@ -883,7 +883,7 @@ def main():
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',
-                        default='./extrabol/example/PSc000174_extrabol.dat',
+                        default='./example/PSc000174_extrabol.dat',
                         type=str, help='Give name of SN file')
     parser.add_argument('-m', '--mean', dest='mean', type=str, default='0',
                         help="Template function for gp.\
