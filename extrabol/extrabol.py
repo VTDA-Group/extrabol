@@ -18,6 +18,7 @@ from scipy import interpolate as interp
 from george.modeling import Model
 import extinction
 import emcee
+import pkg_resources
 
 # Define a few important constants that will be used later
 epsilon = 0.001
@@ -232,7 +233,8 @@ def generate_template(filter_wv, sn_type):
         interpolated template
     '''
 
-    template = np.load('./template/smoothed_sn' + sn_type + '.npz')
+    my_template_file = pkg_resources.resource_filename('extrabol.template_bank', 'smoothed_sn' + sn_type + '.npz')
+    template = np.load(my_template_file)
     temp_times = template['time']
     temp_wavelength = template['wavelength']
     temp_f_lambda = template['f_lambda']
