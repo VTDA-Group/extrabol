@@ -882,10 +882,11 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
 
 def main():
 
+    default_data = pkg_resources.resource_filename('example', 'PSc000174_extrabol.dat')
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',
-                        default='./example/PSc000174_extrabol.dat',
+                        default=default_data,
                         type=str, help='Give name of SN file')
     parser.add_argument('-m', '--mean', dest='mean', type=str, default='0',
                         help="Template function for gp.\
