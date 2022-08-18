@@ -1,0 +1,6 @@
+include README.md
+include extrabol\example\PSc000174_extrabol.dat
+include extrabol\template_bank\smoothed_sn1a.npz
+include extrabol\template_bank\smoothed_sn1bc.npz
+include extrabol\template_bank\smoothed_sn2l.npz
+include extrabol\template_bank\smoothed_sn2p.npz
