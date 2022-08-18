@@ -553,7 +553,6 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     # Populate dense_lc with newly gp-predicted values
     for jj in np.arange(nfilts):
         gind = np.where(np.abs(x_pred[:, 1]-ufilts[jj]) < epsilon)[0]
-        print(np.shape(gind),np.shape(dense_fluxes[:,int(jj)]))
         dense_fluxes[:, int(jj)] = pred[gind]
         dense_errs[:, int(jj)] = np.sqrt(pred_var[gind])
     dense_lc = np.dstack((dense_fluxes, dense_errs))
