@@ -8,7 +8,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as readme_file:
 
 setuptools.setup(
     name="extrabol", # Replace with your own username
-    version="0.1.0",
+    version="0.1.1",
     py_modules=['extrabol', 'snana2extrabol'],
     author="Ian M. Thornton",
     author_email="iot5037@psu.edu",
@@ -18,10 +18,8 @@ setuptools.setup(
     url="https://github.com/villrv/extrabol",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    package_data={
-        'extrabol': ['template_bank/*.npz'],
-        'extrabol': ['example/*.dat']
-    },
+    package_data={'extrabol': ['template_bank/*.npz']},
+    data_files={'extrabol' : ['example/PSc000174_extrabol.dat']},
     install_requires=[
         "numpy",
         "astropy",
