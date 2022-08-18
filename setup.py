@@ -18,7 +18,10 @@ setuptools.setup(
     url="https://github.com/villrv/extrabol",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    package_data={'extrabol': ['template_bank/*.npz']},
+    package_data={
+        'extrabol': ['template_bank/*.npz'],
+        'extrabol': ['example/*.dat']
+    },
     install_requires=[
         "numpy",
         "astropy",
