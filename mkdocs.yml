@@ -1,2 +1,4 @@
+site_name: Extrabol
+repo_url: github.com/villrv/extrabol
 nav:
   - Home: 'README.md'
