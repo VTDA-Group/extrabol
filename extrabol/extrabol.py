@@ -22,7 +22,7 @@ import pkg_resources
 
 # Define a few important constants that will be used later
 epsilon = 0.001
-c = 2.99792458E10
+c = 2.99792458E10 # cm / s
 sigsb = 5.6704e-5  # erg / cm^2 / s / K^4
 h = 6.62607E-27
 ang_to_cm = 1e-8
@@ -479,9 +479,9 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
 
     times = lc[:, 0]
     fluxes = lc[:, 1]
-    filters = lc[:, 2]
+    wv_effs = lc[:, 2]
     errs = lc[:, 3]
-    stacked_data = np.vstack([times, filters]).T
+    stacked_data = np.vstack([times, wv_effs]).T
     ufilts = np.unique(lc[:, 2])
     ufilts_in_angstrom = ufilts*1000.0 + wv_corr
     nfilts = len(ufilts)
@@ -496,7 +496,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     if use_mean:
         template = generate_template(ufilts_in_angstrom, sn_type)
         f_stretch, t_shift, t_stretch = fit_template(ufilts_in_angstrom,
-                                                     template, filters,
+                                                     template, wv_effs,
                                                      wv_corr, fluxes, times,
                                                      errs, z)
 
@@ -592,7 +592,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
     for i, datapoint in enumerate(dense_lc):
         fnu = 10.**((-datapoint[:, 0]+48.6) / -2.5)
         ferr = datapoint[:, 1]
-        fnu = fnu * 4. * np.pi * (3.086e19)**2  # LAZZYYYY assumption of 10 kpc
+        fnu = fnu * 4. * np.pi * (3.086e19)**2
         fnu_err = np.abs(0.921034 * 10.**(0.4*datapoint[:, 0] - 19.44)) \
             * ferr * 4. * np.pi * (3.086e19)**2
 
@@ -897,8 +897,8 @@ def main():
     parser.add_argument('-d', '--dist', dest='distance', type=float,
                         help='Object luminosity distance', default=1e-5)
     parser.add_argument('-z', '--redshift', dest='redshift', type=float,
-                        help='Object redshift', default=1.)
-                        # Redshift can't =1
+                        help='Object redshift', default=-1.)
+                        # Redshift can't =-1
                         # this is simply a flag to be replaced later
     parser.add_argument('--dm', dest='dm', type=float, default=0,
                         help='Object distance modulus')
@@ -909,8 +909,8 @@ def main():
     parser.add_argument("--outdir", help="Output directory", dest='outdir',
                         type=str, default='./products/')
     parser.add_argument("--ebv", help="MWebv", dest='ebv',
-                        type=float, default=1.)
-                        # Ebv won't =1
+                        type=float, default=-1.)
+                        # Ebv won't =-1
                         # this is another flag to be replaced later
     parser.add_argument("--hostebv", help="Host B-V", dest='hostebv',
                         type=float, default=0.0)
@@ -930,7 +930,7 @@ def main():
                         help='Use the redshift-corrected \
                             wavelenghts for extinction calculations',
                         action="store_true")
-    parser.add_argument('--use_mcmc',
+    parser.add_argument('-mc', '--use_mcmc', dest='mc',
                         help='Use a Markov Chain Monte Carlo \
                               to fit BBs instead of curve_fit. This will \
                               take longer, but gives better error estimates',
@@ -943,20 +943,22 @@ def main():
     try:
         sn_type = int(sn_type)
         mean = False
+        if sn_type != 0:
+            print('Template request not valid. Assuming mean function of 0.')
     except ValueError:
         sn_type = sn_type
         mean = True
 
     # If redshift or ebv aren't specified by the user,
     # we read them in from the file here
-    if args.redshift == 1 or args.ebv == 1:
+    if args.redshift == -1 or args.ebv == -1:
         # Read in redshift and ebv and replace values if not specified
         f = open(args.snfile, 'r')
-        if args.redshift == 1:
+        if args.redshift == -1:
             args.redshift = float(f.readline())
-            if args.ebv == 1:
+            if args.ebv == -1:
                 args.ebv = float(f.readline())
-        if args.ebv == 1:
+        if args.ebv == -1:
             args.ebv = float(f.readline())
             args.ebv = float(f.readline())
         f.close
@@ -1012,7 +1014,7 @@ def main():
     # Converts to AB magnitudes
     dense_lc[:, :, 0] += flux_corr
 
-    Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs, args.use_mcmc)
+    Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs, args.mc)
 
     # Calculate bolometric luminosity and error
     bol_lum = 4. * np.pi * Rarr**2 * sigsb * Tarr**4
