@@ -1,5 +1,5 @@
 numpy >= 1.21.6
-astropy >= 5.1
+astropy >= 4.3.1
 astroquery >= 0.4.7
 matplotlib >= 3.5.2
 george >= 0.4.1
