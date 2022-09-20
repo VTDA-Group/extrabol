@@ -606,7 +606,7 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
                 return -np.sum((f-model)**2/(f_err**2))
             def log_prior(params):
                 T, R = params
-                if T > 0 and T < T_max. and R > 0:
+                if T > 0 and T < T_max and R > 0:
                     return 0.
                 return -np.inf
             def log_probability(params, lam, f, f_err):
