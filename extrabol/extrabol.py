@@ -560,7 +560,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     return dense_lc, test_y, test_times
 
 
-def fit_bb(dense_lc, wvs, use_mcmc):
+def fit_bb(dense_lc, wvs, use_mcmc, T_max):
     '''
     Fit a series of BBs to the GP LC
     Adapted from superbol, Nicholl, M. 2018, RNAAS)
@@ -606,7 +606,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
                 return -np.sum((f-model)**2/(f_err**2))
             def log_prior(params):
                 T, R = params
-                if T > 0 and T < 30000. and R > 0:
+                if T > 0 and T < T_max. and R > 0:
                     return 0.
                 return -np.inf
             def log_probability(params, lam, f, f_err):
@@ -637,7 +637,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
             try:
                 BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
                                             p0=(9000, 1e15), sigma=flam_err,
-                                            bounds=(0, [30000, np.inf]))
+                                            bounds=(0, [T_max, np.inf]))
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
                 Terr_arr[i] = np.sqrt(np.diag(covar))[0]
@@ -936,6 +936,9 @@ def main():
                               to fit BBs instead of curve_fit. This will \
                               take longer, but gives better error estimates',
                         default=False, action="store_true")
+    parser.add_argument('--T_max', dest='T_max',  help='Temperature prior \
+                                                        for black body fits',
+                        type=float, default=40000.)
 
     args = parser.parse_args()
 
@@ -1015,7 +1018,7 @@ def main():
     # Converts to AB magnitudes
     dense_lc[:, :, 0] += flux_corr
 
-    Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs, args.mc)
+    Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs, args.mc, args.T_max)
 
     # Calculate bolometric luminosity and error
     bol_lum = 4. * np.pi * Rarr**2 * sigsb * Tarr**4
