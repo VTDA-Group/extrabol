@@ -606,7 +606,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
                 return -np.sum((f-model)**2/(f_err**2))
             def log_prior(params):
                 T, R = params
-                if T > 0 and T < 20000. and R > 0:
+                if T > 0 and T < 30000. and R > 0:
                     return 0.
                 return -np.inf
             def log_probability(params, lam, f, f_err):
@@ -637,7 +637,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
             try:
                 BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
                                             p0=(9000, 1e15), sigma=flam_err,
-                                            bounds=(0, [20000, np.inf]))
+                                            bounds=(0, [30000, np.inf]))
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
                 Terr_arr[i] = np.sqrt(np.diag(covar))[0]
