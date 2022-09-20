@@ -606,7 +606,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
                 return -np.sum((f-model)**2/(f_err**2))
             def log_prior(params):
                 T, R = params
-                if T > 0 and R > 0:
+                if T > 0 and T < 20000. and R > 0:
                     return 0.
                 return -np.inf
             def log_probability(params, lam, f, f_err):
@@ -636,7 +636,8 @@ def fit_bb(dense_lc, wvs, use_mcmc):
         else:
             try:
                 BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
-                                            p0=(9000, 1e15), sigma=flam_err)
+                                            p0=(9000, 1e15), sigma=flam_err
+                                            bounds=(0, [20000, np.inf]))
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
                 Terr_arr[i] = np.sqrt(np.diag(covar))[0]
@@ -905,7 +906,7 @@ def main():
     parser.add_argument("--verbose", help="increase output verbosity",
                         action="store_true")
     parser.add_argument("--plot", help="Make plots", dest='plot',
-                        type=bool, default=True)
+                        action="store_true", default=True)
     parser.add_argument("--outdir", help="Output directory", dest='outdir',
                         type=str, default='./products/')
     parser.add_argument("--ebv", help="MWebv", dest='ebv',

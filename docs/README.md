@@ -70,7 +70,8 @@ The following lines contain observational data in 5 columns as shown below:
 ```
 Time(MJD)   Apparent Magnitude   Error(in magnitudes)   Filter SVO ID   Type of magnitude (AB or Vega)
 ```
-An example input file can be found under extrabol/example
+Any white space can be used as the column delimiter. NaNs, non-detections, and data points with no error bars should not be included.
+An example input file can be found under extrabol/example.
 
 # Example input
 
