@@ -636,7 +636,7 @@ def fit_bb(dense_lc, wvs, use_mcmc):
         else:
             try:
                 BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
-                                            p0=(9000, 1e15), sigma=flam_err
+                                            p0=(9000, 1e15), sigma=flam_err,
                                             bounds=(0, [20000, np.inf]))
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
