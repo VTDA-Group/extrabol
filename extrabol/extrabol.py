@@ -82,7 +82,7 @@ def chi_square(dat, model, uncertainty):
     return chi2
 
 
-def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv, use_wc):
+def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv, use_wc, verbose):
     '''
     Read in SN file
 
@@ -122,6 +122,8 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv, use_wc):
     # Extract key information into seperate arrays
     phases = np.asarray(photometry_data[:, 0], dtype=float)
     errs = np.asarray(photometry_data[:, 2], dtype=float)
+    if verbose:
+        print('Getting Filter Data...')
     index = SvoFps.get_filter_index(timeout=3600)
     filterIDs = np.asarray(index['filterID'].data, dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data, dtype=float)
@@ -447,7 +449,7 @@ def test(lc, wv_corr, z):
     return best_temp
 
 
-def interpolate(lc, wv_corr, sn_type, use_mean, z):
+def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -495,6 +497,8 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z):
     test_times = []
     if use_mean:
         template = generate_template(ufilts_in_angstrom, sn_type)
+        if verbose:
+            print('Fitting Template...')
         f_stretch, t_shift, t_stretch = fit_template(ufilts_in_angstrom,
                                                      template, wv_effs,
                                                      wv_corr, fluxes, times,
@@ -998,7 +1002,8 @@ def main():
                                                             args.start,
                                                             args.end, args.snr,
                                                             args.ebv,
-                                                            args.wvcorr)
+                                                            args.wvcorr,
+                                                            args.verbose)
 
     # Test which template fits the data best
     if sn_type == 'test':
@@ -1007,7 +1012,8 @@ def main():
         print('Using ' + str(sn_type) + ' template.')
 
     dense_lc, test_data, test_times = interpolate(lc, wv_corr, sn_type,
-                                                  mean, args.redshift)
+                                                  mean, args.redshift,
+                                                  args.verbose)
     lc = lc.T
 
     wvs, wvind = np.unique(lc[:, 2], return_index=True)
@@ -1018,6 +1024,8 @@ def main():
     # Converts to AB magnitudes
     dense_lc[:, :, 0] += flux_corr
 
+    if args.verbose:
+        print('Fitting Blackbodies, this may take a few minutes...')
     Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs, args.mc, args.T_max)
 
     # Calculate bolometric luminosity and error
