@@ -2,4 +2,4 @@ site_name: Extrabol
 repo_url: http://github.com/villrv/extrabol
 site_author: Ian Thornton
 nav:
-  - Home: 'README.md'
+  - Home: 'docs/README.md'
