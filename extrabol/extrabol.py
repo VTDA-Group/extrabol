@@ -22,7 +22,7 @@ import pkg_resources
 
 # Define a few important constants that will be used later
 epsilon = 0.001
-c = 2.99792458E10 # cm / s
+c = 2.99792458E10  # cm / s
 sigsb = 5.6704e-5  # erg / cm^2 / s / K^4
 h = 6.62607E-27
 ang_to_cm = 1e-8
@@ -82,7 +82,8 @@ def chi_square(dat, model, uncertainty):
     return chi2
 
 
-def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv, use_wc, verbose):
+def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
+                       use_wc, verbose):
     '''
     Read in SN file
 
@@ -235,7 +236,10 @@ def generate_template(filter_wv, sn_type):
         interpolated template
     '''
 
-    my_template_file = pkg_resources.resource_filename('extrabol.template_bank', 'smoothed_sn' + sn_type + '.npz')
+    my_template_file = pkg_resources.resource_filename(
+                       'extrabol.template_bank', 'smoothed_sn' +
+                       sn_type + '.npz'
+                       )
     template = np.load(my_template_file)
     temp_times = template['time']
     temp_wavelength = template['wavelength']
@@ -280,7 +284,7 @@ def generate_template(filter_wv, sn_type):
     temp_wavelength = temp_wavelength[gis]
     temp_f_lambda = temp_f_lambda[gis]
 
-    #set peak flux to t=0
+    # Set peak flux to t=0
     peak_i = np.argmax(temp_f_lambda)
     temp_times = np.asarray(temp_times) - temp_times[peak_i]
 
@@ -487,9 +491,12 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
     ufilts = np.unique(lc[:, 2])
     ufilts_in_angstrom = ufilts*1000.0 + wv_corr
     nfilts = len(ufilts)
-    x_pred = np.zeros((int((np.ceil(np.max(times))-np.floor(np.min(times)))+1)*nfilts, 2))
-    dense_fluxes = np.zeros((int((np.ceil(np.max(times))-np.floor(np.min(times)))+1), nfilts))
-    dense_errs = np.zeros((int((np.ceil(np.max(times))-np.floor(np.min(times)))+1), nfilts))
+    x_pred = np.zeros((int((np.ceil(np.max(times)) -
+                            np.floor(np.min(times)))+1)*nfilts, 2))
+    dense_fluxes = np.zeros((int((np.ceil(np.max(times)) -
+                                  np.floor(np.min(times)))+1), nfilts))
+    dense_errs = np.zeros((int((np.ceil(np.max(times)) -
+                                np.floor(np.min(times)))+1), nfilts))
 
     # test_y is only used if mean = True
     # but I still need it to exist either way
@@ -547,7 +554,8 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
     gp.set_parameter_vector(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
-    for jj, time in enumerate(np.arange(int(np.floor(np.min(times))), int(np.ceil(np.max(times)))+1)):
+    for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
+                                        int(np.ceil(np.max(times)))+1)):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 0] = [time] * nfilts
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
@@ -608,11 +616,13 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
                 T, R = params
                 model = bbody(lam, T, R)
                 return -np.sum((f-model)**2/(f_err**2))
+
             def log_prior(params):
                 T, R = params
                 if T > 0 and T < T_max and R > 0:
                     return 0.
                 return -np.inf
+
             def log_probability(params, lam, f, f_err):
                 lp = log_prior(params)
                 if not np.isfinite(lp):
@@ -621,10 +631,11 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
 
             nwalkers = 16
             ndim = 2
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=[wvs,flam,flam_err])
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability,
+                                            args=[wvs, flam, flam_err])
             T0 = 9000 + 1000*np.random.rand(nwalkers)
             R0 = 1e15 + 1e14*np.random.rand(nwalkers)
-            p0 = np.vstack([T0,R0])
+            p0 = np.vstack([T0, R0])
             p0 = p0.T
 
             burn_in_state = sampler.run_mcmc(p0, 100)
@@ -632,10 +643,12 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
             sampler.run_mcmc(burn_in_state, 4000)
             flat_samples = sampler.get_chain(discard=100, thin=1, flat=True)
 
-            T_arr[i] = np.median(flat_samples[:,0])
-            R_arr[i] = np.median(flat_samples[:,1])
-            Terr_arr[i] = (np.percentile(flat_samples[:,0], 84)-np.percentile(flat_samples[:,0], 16)) / 2.
-            Rerr_arr[i] = (np.percentile(flat_samples[:,1], 84)-np.percentile(flat_samples[:,1], 16)) / 2.
+            T_arr[i] = np.median(flat_samples[:, 0])
+            R_arr[i] = np.median(flat_samples[:, 1])
+            Terr_arr[i] = (np.percentile(flat_samples[:, 0], 84) -
+                           np.percentile(flat_samples[:, 0], 16)) / 2.
+            Rerr_arr[i] = (np.percentile(flat_samples[:, 1], 84) -
+                           np.percentile(flat_samples[:, 1], 16)) / 2.
 
         else:
             try:
@@ -652,7 +665,6 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
                 R_arr[i] = np.nan
                 Terr_arr[i] = np.nan
                 Rerr_arr[i] = np.nan
-
 
     return T_arr, R_arr, Terr_arr, Rerr_arr
 
@@ -690,7 +702,8 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     Output
     ------
     '''
-    plot_times = np.arange(int(np.floor(np.min(lc[:,0]))), (int(np.ceil(np.max(lc[:,0])))+1))
+    plot_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
+                           (int(np.ceil(np.max(lc[:, 0])))+1))
 
     # Import a color map to make the plots look pretty
     cm = plt.get_cmap('rainbow')
@@ -762,15 +775,18 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     Output
     ------
     '''
-    interp_times = np.arange(int(np.floor(np.min(lc[:,0]))), int(np.ceil(np.max(lc[:,0])))+1)
+    interp_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
+                             int(np.ceil(np.max(lc[:, 0])))+1)
     fig, axarr = plt.subplots(2, 1, sharex=True)
 
     axarr[0].plot(interp_times, Tarr / 1.e3, color='k')
-    axarr[0].fill_between(interp_times, Tarr/1.e3 - Terr_arr/1.e3, Tarr/1.e3 + Terr_arr/1.e3, color='k', alpha=0.2)
+    axarr[0].fill_between(interp_times, Tarr/1.e3 - Terr_arr/1.e3,
+                          Tarr/1.e3 + Terr_arr/1.e3, color='k', alpha=0.2)
     axarr[0].set_ylabel('Temp. (1000 K)')
 
     axarr[1].plot(interp_times, Rarr / 1e15, color='k')
-    axarr[1].fill_between(interp_times, Rarr/1e15 - Rerr_arr/1e15, Rarr/1e15 + Rerr_arr/1e15, color='k', alpha=0.2)
+    axarr[1].fill_between(interp_times, Rarr/1e15 - Rerr_arr/1e15,
+                          Rarr/1e15 + Rerr_arr/1e15, color='k', alpha=0.2)
     axarr[1].set_ylabel(r'Radius ($10^{15}$ cm)')
 
     axarr[1].set_xlabel('Time (Days)')
@@ -804,10 +820,12 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     Output
     ------
     '''
-    plot_times = np.arange(int(np.floor(np.min(lc[:,0]))), int(np.ceil(np.max(lc[:,0])))+1)
+    plot_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
+                           int(np.ceil(np.max(lc[:, 0])))+1)
 
     plt.plot(plot_times, bol_lum, color='k')
-    plt.fill_between(plot_times, bol_lum-bol_err, bol_lum+bol_err, color='k', alpha=0.2)
+    plt.fill_between(plot_times, bol_lum-bol_err, bol_lum+bol_err,
+                     color='k', alpha=0.2)
 
     plt.title(snname)
     plt.xlabel('Time (Days)')
@@ -856,7 +874,8 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     ------
     '''
 
-    times = np.arange(int(np.floor(np.min(lc[:,0]))), int(np.ceil(np.max(lc[:,0])))+1)
+    times = np.arange(int(np.floor(np.min(lc[:, 0]))),
+                      int(np.ceil(np.max(lc[:, 0])))+1)
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
     dense_lc = np.hstack((np.reshape(-times, (len(times), 1)), dense_lc))
     tabledata = np.stack((Tarr / 1e3, Terr_arr / 1e3, Rarr / 1e15,
@@ -878,15 +897,17 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                   meta={'name': 'first table'})
 
     format_dict = {head: '%0.3f' for head in table_header}
-    ascii.write(table, outdir + snname + '_' + str(sn_type) + '.txt', formats=format_dict,
-                overwrite=True)
+    ascii.write(table, outdir + snname + '_' + str(sn_type) + '.txt',
+                formats=format_dict, overwrite=True)
 
     return 1
 
 
 def main():
 
-    default_data = pkg_resources.resource_filename('extrabol.example', 'PSc000174_extrabol.dat')
+    default_data = pkg_resources.resource_filename(
+                   'extrabol.example', 'PSc000174_extrabol.dat'
+                   )
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',
@@ -903,8 +924,8 @@ def main():
                         help='Object luminosity distance', default=1e-5)
     parser.add_argument('-z', '--redshift', dest='redshift', type=float,
                         help='Object redshift', default=-1.)
-                        # Redshift can't =-1
-                        # this is simply a flag to be replaced later
+    # Redshift can't =-1
+    # this is simply a flag to be replaced later
     parser.add_argument('--dm', dest='dm', type=float, default=0,
                         help='Object distance modulus')
     parser.add_argument("--verbose", help="increase output verbosity",
@@ -915,8 +936,8 @@ def main():
                         type=str, default='./products/')
     parser.add_argument("--ebv", help="MWebv", dest='ebv',
                         type=float, default=-1.)
-                        # Ebv won't =-1
-                        # this is another flag to be replaced later
+    # Ebv won't =-1
+    # this is another flag to be replaced later
     parser.add_argument("--hostebv", help="Host B-V", dest='hostebv',
                         type=float, default=0.0)
     parser.add_argument('-s', '--start',
@@ -1040,7 +1061,8 @@ def main():
             print('Making plots in ' + args.outdir)
         plot_gp(lc, dense_lc, snname, flux_corr, ufilts, wvs, test_data,
                 args.outdir, sn_type, test_times, mean, args.template)
-        plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, args.outdir, sn_type)
+        plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname,
+                   args.outdir, sn_type)
         plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir, sn_type)
 
     if args.verbose:
