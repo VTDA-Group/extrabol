@@ -52,6 +52,8 @@ With a densely sampled interpolation, `extrabol` finally fits a series of blackb
 
 Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis.
 
+![caption .\label{fig:example}](PSc000174_extrabol_0_bb_bol.png)
+
 
 # Statement of need
 
@@ -59,7 +61,7 @@ The discovery rate of supernovae has grown exponentially since the 1980s. Curren
 
 Such an increase in data generates a need for new, more efficient tools to process said data. Furthermore, open access tools greatly lowers the barriers to analysis of LSST data. This was the motivation behind `extrabol`. `extrabol` is designed to allow users to quickly and automatically generate the bolometric light curves (under blackbody assumptions) of supernovae, quickly enabling quantitative analysis of multi-band light curves with minimal preprocessing steps on the user’s end.
 
-Although creating a bolometric light curve is often the very first step of analysis for supernovae, limited options exist for scientists. The closest counterpart to `extrabol` is `superBol` [@nicholl2018superbol], a python-based package which also computed bolometric light curves from broadband observations. Unlike `extrabol`, `superbol` uses deterministic interpolation methods (e.g., polynomial fits) and requires a degree of user interactivity in order to fit each object. `extrabol`, in contrast, interpolates using a 2-D Gaussian Process and can be run with no user interaction, allowing for automation over large batches of data. One light curve with 25 points, takes [Time this] to fit the full light curve on one core. If an object of interest is found from this distillation, `extrabol` retains the flexibility to conform to unique cases.
+Although creating a bolometric light curve is often the very first step of analysis for supernovae, limited options exist for scientists. The closest counterpart to `extrabol` is `superBol` [@nicholl2018superbol], a python-based package which also computed bolometric light curves from broadband observations. Unlike `extrabol`, `superbol` uses deterministic interpolation methods (e.g., polynomial fits) and requires a degree of user interactivity in order to fit each object. `extrabol`, in contrast, interpolates using a 2-D Gaussian Process and can be run with no user interaction, allowing for automation over large batches of data. To give an idea of how quickly extrabol can run, the example light curve with 267 data points on one core takes just under 3 seconds. If an object of interest is found from this distillation, `extrabol` retains the flexibility to conform to unique cases.
 
 
 # Acknowledgements

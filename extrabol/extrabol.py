@@ -523,9 +523,10 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         # Get Test data so that the template can be plotted
         mean = snModel()
         for i in ufilts_in_angstrom:
-            test_wv = np.full((1, round(np.max(times))
-                               - round(np.min(times))), i)
-            test_times = np.arange(round(np.min(times)), round(np.max(times)))
+            test_wv = np.full((1, int((np.ceil(np.max(times)) -
+                                       np.floor(np.min(times))))), i)
+            test_times = np.arange(int(np.floor(np.min(times))+1),
+                                   int(np.ceil(np.max(times))+1))
             test_x = np.vstack((test_times, test_wv)).T
             test_y.append(mean.get_value(test_x))
         test_y = np.asarray(test_y)

@@ -3,3 +3,6 @@ repo_url: http://github.com/villrv/extrabol
 site_author: Ian Thornton
 nav:
   - Home: 'docs/README.md'
+
+- name: Open Journals PDF Generator
+  uses: openjournals/openjournals-draft-action@v.1.0
