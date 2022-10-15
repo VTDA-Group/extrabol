@@ -601,6 +601,7 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
     R_arr = np.zeros(len(dense_lc))
     Terr_arr = np.zeros(len(dense_lc))
     Rerr_arr = np.zeros(len(dense_lc))
+    prior_fit = (9000, 1e15)
 
     for i, datapoint in enumerate(dense_lc):
         fnu = 10.**((-datapoint[:, 0]+48.6) / -2.5)
@@ -652,15 +653,17 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
                            np.percentile(flat_samples[:, 1], 16)) / 2.
 
         else:
+
             try:
-                BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=8000,
-                                            p0=(9000, 1e15), sigma=flam_err,
+                BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=10000,
+                                            p0=prior_fit, sigma=flam_err,
                                             bounds=(0, [T_max, np.inf]))
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
                 Terr_arr[i] = np.sqrt(np.diag(covar))[0]
                 R_arr[i] = np.abs(BBparams[1])
                 Rerr_arr[i] = np.sqrt(np.diag(covar))[1]
+                prior_fit = BBparams
             except RuntimeWarning:
                 T_arr[i] = np.nan
                 R_arr[i] = np.nan
