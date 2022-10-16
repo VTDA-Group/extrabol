@@ -51,7 +51,7 @@ Once the light curve has been pre-processed, a 2-D Gaussian Process (GP) is fit 
 With a densely sampled interpolation, `extrabol` finally fits a series of blackbodies to the light curves, giving estimates of the bolometric luminosity, radius, and temperature over time. The user can specify whether a gradient descent method (using `scipy` `curve_fit`) or a Markov Chain Monte Carlo (`emcee`, @foreman2019emcee) is used in this step. While the gradient descent option is significantly quicker, a Markov Chain Monte Carlo may be desirable for better error estimates. 
 
 (PSc000174_extrabol_0_bb_bol.png)
-Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis.
+Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis. Figure 1 below shows an example of three output plots from extrabol.
 
 ![Output plots of extrabol for PSc000174. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png)
 
