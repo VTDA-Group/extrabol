@@ -53,7 +53,7 @@ With a densely sampled interpolation, `extrabol` finally fits a series of blackb
 (PSc000174_extrabol_0_bb_bol.png)
 Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis.
 
-![caption .\label{fig:example}](PSc000174_extrabol_0_bb_bol.png)
+![Output plots of extrabol for PSc000174. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png)
 
 # Statement of need
 
