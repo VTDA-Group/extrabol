@@ -1,5 +1,5 @@
 ---
-title: 'ExTraBol: '
+title: 'extrabol: A Gaussian Process-based Bolometric Light Curve Estimator for Supernovae'
 tags:
   - python
   - astronomy
