@@ -742,7 +742,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     if mean:
         plt.title(snname + ' using sn' + sn_type + ' template')
     else:
-        plt.title(snname)
+        plt.title(snname + ' Light Curves')
     plt.legend()
     plt.xlabel('Time(days)')
     plt.ylabel('Absolute Magnitudes')
@@ -794,7 +794,7 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     axarr[1].set_ylabel(r'Radius ($10^{15}$ cm)')
 
     axarr[1].set_xlabel('Time (Days)')
-    axarr[0].set_title(snname)
+    axarr[0].set_title(snname + ' Black Body Evolution')
 
     plt.savefig(outdir + snname + '_' + str(sn_type) + '_bb_ev.png')
     plt.clf()
@@ -831,7 +831,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     plt.fill_between(plot_times, bol_lum-bol_err, bol_lum+bol_err,
                      color='k', alpha=0.2)
 
-    plt.title(snname)
+    plt.title(snname + ' Bolometric Luminosity')
     plt.xlabel('Time (Days)')
     plt.ylabel('Bolometric Luminosity')
     plt.yscale('log')
@@ -910,7 +910,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
 def main():
 
     default_data = pkg_resources.resource_filename(
-                   'extrabol.example', 'PSc000174_extrabol.dat'
+                   'extrabol.example', 'PSc000174.dat'
                    )
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
