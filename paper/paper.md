@@ -14,10 +14,10 @@ authors:
     affiliation: "1,2,3"
   - name: Sebastian Gomez
     orcid: 0000-0002-5814-4061
-    affiliation: "1,2,3"
+    affiliation: "5"
   - name: Griffin Hossenzadeh
     orcid: 0000-0002-0832-2974
-    affiliation: "5"
+    affiliation: "4"
 
 affiliations:
  - name: Department of Astronomy and Astrophysics, Pennsylvania State University, 525 Davey Laboratory, University Park, PA 16802, USA
@@ -27,7 +27,10 @@ affiliations:
  - name: Institute for Gravitation and the Cosmos, The Pennsylvania State University, University Park, PA 16802, USA
    index: 3
  - name: Steward Observatory, University of Arizona, 933 North Cherry Avenue, Tucson, AZ 85721-0065, USA
+   index: 4
+ - name: Space Telescope Science Institute, 3700 San Martin Dr, Baltimore, MD 21218, USA
    index: 5
+
 
 date: 9 August 2022
 bibliography: paper.bib
