@@ -55,7 +55,7 @@ With a densely sampled interpolation, `extrabol` finally fits a series of blackb
 
 Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis. \autoref{fig:example} below shows an example of three output plots from extrabol.
 
-![Example output plots of extrabol for PSc000174. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png)
+![Example output plots of extrabol for SN 2010bc. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png){width = 150%}
 
 # Statement of need
 
@@ -63,7 +63,7 @@ The discovery rate of supernovae has grown exponentially since the 1980s. Curren
 
 Such an increase in data generates a need for new, more efficient tools to process said data. Furthermore, open access tools greatly lowers the barriers to analysis of LSST data. This was the motivation behind `extrabol`. `extrabol` is designed to allow users to quickly and automatically generate the bolometric light curves (under blackbody assumptions) of supernovae, enabling rapid, quantitative analysis of multi-band light curves with minimal preprocessing steps on the user’s end.
 
-Although creating a bolometric light curve is often the very first step of analysis for supernovae, limited options exist for scientists. The closest counterpart to `extrabol` is `superBol` [@nicholl2018superbol], a Python-based package which also computed bolometric light curves from broadband observations. Unlike `extrabol`, `superbol` uses deterministic interpolation methods (e.g., polynomial fits) and requires a degree of user interactivity in order to fit each object. `extrabol`, in contrast, interpolates using a 2-D GP and can be run with no user interaction, allowing for automation over large batches of data. For example, PSc000174 shown in \autoref{fig:example} contains 267 data points and takes just under 3 seconds to run on one CPU. If an object of interest is found, `extrabol` also retains the flexibility to conform to unique cases with 16 optional arguments that the user is free to adjust as necessary.
+Although creating a bolometric light curve is often the very first step of analysis for supernovae, limited options exist for scientists. The closest counterpart to `extrabol` is `superBol` [@nicholl2018superbol], a Python-based package which also computed bolometric light curves from broadband observations. Unlike `extrabol`, `superbol` uses deterministic interpolation methods (e.g., polynomial fits) and requires a degree of user interactivity in order to fit each object. `extrabol`, in contrast, interpolates using a 2-D GP and can be run with no user interaction, allowing for automation over large batches of data. For example, SN 2010bc shown in \autoref{fig:example} contains 267 data points and takes just under 3 seconds to run on one CPU. If an object of interest is found, `extrabol` also retains the flexibility to conform to unique cases with 16 optional arguments that the user is free to adjust as necessary.
 
 
 # Acknowledgements
