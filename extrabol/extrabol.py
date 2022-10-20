@@ -910,7 +910,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
 def main():
 
     default_data = pkg_resources.resource_filename(
-                   'extrabol.example', 'PSc000174.dat'
+                   'extrabol.example', 'SN2010bc.dat'
                    )
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
