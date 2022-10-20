@@ -14,10 +14,10 @@ authors:
     affiliation: "1,2,3"
   - name: Sebastian Gomez
     orcid: 0000-0002-5814-4061
-    affiliation: "5"
+    affiliation: "4"
   - name: Griffin Hossenzadeh
     orcid: 0000-0002-0832-2974
-    affiliation: "4"
+    affiliation: "5"
 
 affiliations:
  - name: Department of Astronomy and Astrophysics, Pennsylvania State University, 525 Davey Laboratory, University Park, PA 16802, USA
@@ -26,13 +26,14 @@ affiliations:
    index: 2
  - name: Institute for Gravitation and the Cosmos, The Pennsylvania State University, University Park, PA 16802, USA
    index: 3
- - name: Steward Observatory, University of Arizona, 933 North Cherry Avenue, Tucson, AZ 85721-0065, USA
-   index: 4
  - name: Space Telescope Science Institute, 3700 San Martin Dr, Baltimore, MD 21218, USA
+   index: 4 
+ - name: Steward Observatory, University of Arizona, 933 North Cherry Avenue, Tucson, AZ 85721-0065, USA
    index: 5
 
 
-date: 9 August 2022
+
+date: 20 October 2022
 bibliography: paper.bib
 
 ---
@@ -47,15 +48,16 @@ When analyzing a supernova, or any other transient event, a key piece of informa
 
 3. Fit a series of blackbody curves to the interpolated data to estimate the bolometric luminosity, temperature, and radius of the transient over time.
 
+These steps will be explained in more detail below.
 The user must provide a data file including observational times, magnitudes, uncertainties and filters used to conduct the observation. Each filter must have a corresponding ID in the Spanish Virtual Observatory (SVO, @gutierrez2006spanish). After reading in all data from a user-generated text file, `extrabol` corrects for redshift and extinction due to galactic dust using the extinction model presented in @fitzpatrick2007analysis. The user may also optionally correct the light curve for host galaxy reddening. The apparent magnitudes are converted to a logarithmic luminosity. Data points are also culled based on a minimum signal-to-noise ratio and a desired temporal window specified by the user.
 
 Once the light curve has been pre-processed, a 2-D GP is fit to the observed data, using the open-source code `george` [@foreman2015george]. The GP uses the standard squared exponential kernel, interpolating in both time and wavelength (using the effective wavelengths of each filter from SVO). The GP kernel parameters are optimized via the `scipy` `minimize` function [@virtanen2020scipy], which uses a gradient descent optimizer. In the presence of large temporal gaps between data points, it is possible that the GP will yield an unrealistic interpolation near the mean function. For this reason, we additionally provide a series of SN templates to optionally use as GP mean functions. Specifically, the user may select from a set of Type Ia, Type Ib/c, Type IIL and Type IIP templates originally provided in @nugent_2007. 
 
 With a densely sampled interpolation, `extrabol` finally fits a series of blackbodies to the light curves, giving estimates of the bolometric luminosity, radius, and temperature over time. The user can specify whether a gradient descent method (using `scipy` `curve_fit`) or a Markov Chain Monte Carlo (`emcee`, @foreman2019emcee) is used in this step. While the gradient descent option is significantly quicker, a Markov Chain Monte Carlo may be desirable for better error estimates. 
 
-Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis. \autoref{fig:example} below shows an example of three output plots from extrabol.
+Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis. \autoref{fig:example} below shows an example of three output plots from `extrabol`.
 
-![Example output plots of extrabol for SN 2010bc[@villar2020superraenn]. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png)
+![Example output plots of extrabol for SN 2010bc [@villar2020superraenn]. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png)
 
 # Statement of need
 
