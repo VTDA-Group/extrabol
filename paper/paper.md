@@ -55,7 +55,7 @@ With a densely sampled interpolation, `extrabol` finally fits a series of blackb
 
 Finally, `extrabol` produces several output files. We provide the blackbody temperature, radius and luminosity as a function of time. We additionally provide plots for quick analysis. \autoref{fig:example} below shows an example of three output plots from extrabol.
 
-![Example output plots of extrabol for SN 2010bc[@villar2020superraenn]. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}{ width=150% }](Figure_1.png)
+![Example output plots of extrabol for SN 2010bc[@villar2020superraenn]. From left to right: interpolated light curve, blackbody radius and temperature evolution, and blackbody bolometric light curve .\label{fig:example}](Figure_1.png){ width=120% }
 
 # Statement of need
 
