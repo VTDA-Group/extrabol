@@ -1,3 +1,6 @@
+[![DOI](https://zenodo.org/badge/283353973.svg)](https://zenodo.org/badge/latestdoi/283353973)
+
+
 Generate bolometric estimates of Supernovae
 
 Author: Ian Thornton
