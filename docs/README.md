@@ -1,16 +1,27 @@
 [![DOI](https://zenodo.org/badge/283353973.svg)](https://zenodo.org/badge/latestdoi/283353973)
 
 
-Generate bolometric estimates of Supernovae
+#extrabol
+
+`extrabol` is a Python 3.x package for rapidly and systematicaly estimating the bolometric luminosity and black body properties of (thermal) extragalactic transients from broadband UVONIR data. `extrabol` is broken down into three main steps:
+
+- Read in and pre-process a data file holding observations of a supernova or other transient event over time, through any number of broadband filters.
+- Interpolate this data using a Gaussian Process(GP), a non-physical, statistical model utilizing covariance.
+- Fit a series of blackbody curves to the interpolated data to estimate the bolometric luminosity, temperature, and radius of the transient over time.
 
 Author: Ian Thornton
+
+## Installation and Documentation
 
 Install with pip:
 
 ```bash
 pip install extrabol
 ```
-# Usage
+
+The latest documentation is available [here](https://extrabol.readthedocs.io/en/latest/.
+
+## Usage
 
 ```
 extrabol 'filename.dat' ARGUMENTS
@@ -73,7 +84,7 @@ Optional Arguments:
     Modify the prior on temperature for blackbody fits by specifying a maximum temperature.
     Default = 40,000K
 ```
-# Input Files
+## Input Files
 
 Inputs to extrabol must be .dat files that conform to the following format.
 
@@ -86,7 +97,7 @@ Time(MJD)   Apparent Magnitude   Error(in magnitudes)   Filter SVO ID   Type of 
 Any white space can be used as the column delimiter. NaNs, non-detections, and data points with no error bars should not be included.
 An example input file can be found under extrabol/example.
 
-# Example Input
+## Example Input
 
 ```python
 extrabol ./example/PSc000174_extrabol.dat --verbose -m 1a
