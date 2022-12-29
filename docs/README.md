@@ -1,7 +1,7 @@
 [![DOI](https://zenodo.org/badge/283353973.svg)](https://zenodo.org/badge/latestdoi/283353973)
 
 
-#extrabol
+# extrabol
 
 `extrabol` is a Python 3.x package for rapidly and systematicaly estimating the bolometric luminosity and black body properties of (thermal) extragalactic transients from broadband UVONIR data. `extrabol` is broken down into three main steps:
 
