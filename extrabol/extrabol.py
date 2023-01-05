@@ -533,7 +533,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
 
     # Set up gp
     kernel = np.var(lc[:, 1]) \
-        * george.kernels.ExpSquaredKernel([50, 0.5], ndim=2)
+        * george.kernels.Matern32Kernel([10, 0.01], ndim=2)
     if not use_mean:
         gp = george.GP(kernel, mean=0)
     else:
@@ -549,10 +549,13 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         return -gp.grad_log_likelihood(lc[:, 1])
 
     # Optomize gp parameters
+    bnds = ((None, None), (None, None), (None, None))
     result = minimize(neg_ln_like,
                       gp.get_parameter_vector(),
-                      jac=grad_neg_ln_like)
+                      jac=grad_neg_ln_like,
+                      bounds = bnds)
     gp.set_parameter_vector(result.x)
+    print(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),

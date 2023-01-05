@@ -1,18 +1,21 @@
-Welcome to Lumache's documentation!
-===================================
-just a test!
 
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
+extrabol
+====================================
 
-.. note::
 
-   This project is under active development.
+**extrabol** is a Python 3.x package for rapidly and systematicaly estimating the bolometric luminosity and black body properties of (thermal) extragalactic transients from broadband UVONIR data.
 
-Contents
---------
+
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-   usage
-   api
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
