@@ -19,7 +19,7 @@ Install with pip:
 pip install extrabol
 ```
 
-The latest documentation is available [here](https://extrabol.readthedocs.io/en/latest/.
+The latest documentation is available [here](https://extrabol.readthedocs.io/en/latest/).
 
 ## Usage
 
