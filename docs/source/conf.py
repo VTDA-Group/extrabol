@@ -7,8 +7,8 @@ import sys
 # -- Project information
 
 project = 'extrabol'
-copyright = '2021, Graziella'
-author = 'Graziella'
+copyright = '2022, Thornton'
+author = 'Thornton'
 
 release = '0.1'
 version = '0.1.0'

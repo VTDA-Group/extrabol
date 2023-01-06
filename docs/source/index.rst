@@ -11,6 +11,11 @@ extrabol
    :maxdepth: 2
    :caption: Contents:
 
+   installation.rst
+   quickstart.rst
+   input.rst
+   usage.rst
+
 
 
 Indices and tables
