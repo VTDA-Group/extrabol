@@ -56,31 +56,6 @@ def bbody(lam, T, R):
     return lum
 
 
-def chi_square(dat, model, uncertainty):
-    '''
-    Calculate the chi squared of a model given a set of data
-
-    Parameters
-    ----------
-    dat : numpy.array
-        Experimental data for the model to be tested against
-    model : numpy.array
-        Model data being tested
-    uncertainty : numpy.array
-        Error on experimental data
-
-    Output
-    ------
-    chi2 : float
-        the chi sqaured value of the model
-    '''
-
-    chi2 = 0.
-    for i in np.arange(len(dat)):
-        chi2 += ((model[i]-dat[i]) / uncertainty[i])**2.
-
-    return chi2
-
 
 def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
                        use_wc, verbose):
@@ -118,14 +93,16 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
         List of filter names
     '''
 
+    #if '.json' in filename:
+    #    # FOR ME: phases, mag, errs, filter
+    #else:
     photometry_data = np.loadtxt(filename, dtype=str, skiprows=2)
-
     # Extract key information into seperate arrays
     phases = np.asarray(photometry_data[:, 0], dtype=float)
     errs = np.asarray(photometry_data[:, 2], dtype=float)
     if verbose:
         print('Getting Filter Data...')
-    index = SvoFps.get_filter_index(timeout=3600)
+    index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom, wavelength_eff_max=30000*u.angstrom,timeout=3600)
     filterIDs = np.asarray(index['filterID'].data, dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data, dtype=float)
     widthEffs = np.asarray(index['WidthEff'].data, dtype=float)
@@ -186,6 +163,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
             gis.append(i)
     gis = np.asarray(gis, dtype=int)
 
+
     phases = phases[gis]
     fluxes = fluxes[gis]
     wv_effs = wv_effs[gis]
@@ -218,6 +196,31 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
 
     return lc, wv_corr, flux_corr, my_filters
 
+
+def chi_square(dat, model, uncertainty):
+    '''
+    Calculate the chi squared of a model given a set of data
+
+    Parameters
+    ----------
+    dat : numpy.array
+        Experimental data for the model to be tested against
+    model : numpy.array
+        Model data being tested
+    uncertainty : numpy.array
+        Error on experimental data
+
+    Output
+    ------
+    chi2 : float
+        the chi sqaured value of the model
+    '''
+
+    chi2 = 0.
+    for i in np.arange(len(dat)):
+        chi2 += ((model[i]-dat[i]) / uncertainty[i])**2.
+
+    return chi2
 
 def generate_template(filter_wv, sn_type):
     '''
@@ -1043,7 +1046,6 @@ def main():
                                                   mean, args.redshift,
                                                   args.verbose)
     lc = lc.T
-
     wvs, wvind = np.unique(lc[:, 2], return_index=True)
     wvs = wvs*1000.0 + wv_corr
     my_filters = np.asarray(my_filters)
