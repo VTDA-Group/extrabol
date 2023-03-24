@@ -175,6 +175,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
 
     # Set the peak flux to t=0
     peak_i = np.argmax(fluxes)
+    print('Peak time is,',phases[peak_i])
     phases = np.asarray(phases) - phases[peak_i]
 
     # Eliminate any data points outside of specified range
@@ -494,12 +495,11 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
     ufilts = np.unique(lc[:, 2])
     ufilts_in_angstrom = ufilts*1000.0 + wv_corr
     nfilts = len(ufilts)
-    x_pred = np.zeros((int((np.ceil(np.max(times)) -
-                            np.floor(np.min(times)))+1)*nfilts, 2))
-    dense_fluxes = np.zeros((int((np.ceil(np.max(times)) -
-                                  np.floor(np.min(times)))+1), nfilts))
-    dense_errs = np.zeros((int((np.ceil(np.max(times)) -
-                                np.floor(np.min(times)))+1), nfilts))
+    length_of_times = len(np.arange(int(np.floor(np.min(lc[:, 0]))),
+                           (int(np.ceil(np.max(lc[:, 0])))+1),0.1))
+    x_pred = np.zeros((length_of_times*nfilts, 2))
+    dense_fluxes = np.zeros((length_of_times, nfilts))
+    dense_errs = np.zeros((length_of_times, nfilts))
 
     # test_y is only used if mean = True
     # but I still need it to exist either way
@@ -526,17 +526,16 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         # Get Test data so that the template can be plotted
         mean = snModel()
         for i in ufilts_in_angstrom:
-            test_wv = np.full((1, int((np.ceil(np.max(times)) -
-                                       np.floor(np.min(times))))), i)
+            test_wv = np.full((1, length_of_times, i))
             test_times = np.arange(int(np.floor(np.min(times))+1),
-                                   int(np.ceil(np.max(times))+1))
+                                   int(np.ceil(np.max(times))+1), 0.1)
             test_x = np.vstack((test_times, test_wv)).T
             test_y.append(mean.get_value(test_x))
         test_y = np.asarray(test_y)
 
     # Set up gp
     kernel = np.var(lc[:, 1]) \
-        * george.kernels.Matern32Kernel([10, 0.01], ndim=2)
+        * george.kernels.Matern32Kernel([12, 0.1], ndim=2)
     if not use_mean:
         gp = george.GP(kernel, mean=0)
     else:
@@ -562,7 +561,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
-                                        int(np.ceil(np.max(times)))+1)):
+                                        int(np.ceil(np.max(times)))+1, 0.1)):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 0] = [time] * nfilts
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
@@ -607,6 +606,8 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
     R_arr = np.zeros(len(dense_lc))
     Terr_arr = np.zeros(len(dense_lc))
     Rerr_arr = np.zeros(len(dense_lc))
+    covar_arr = np.zeros(len(dense_lc))
+
     prior_fit = (9000, 1e15)
 
     for i, datapoint in enumerate(dense_lc):
@@ -645,12 +646,11 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
             R0 = 1e15 + 1e14*np.random.rand(nwalkers)
             p0 = np.vstack([T0, R0])
             p0 = p0.T
-
             burn_in_state = sampler.run_mcmc(p0, 100)
             sampler.reset()
             sampler.run_mcmc(burn_in_state, 4000)
             flat_samples = sampler.get_chain(discard=100, thin=1, flat=True)
-
+            covar_arr[i] = np.cov(flat_samples.T)[0,1]
             T_arr[i] = np.median(flat_samples[:, 0])
             R_arr[i] = np.median(flat_samples[:, 1])
             Terr_arr[i] = (np.percentile(flat_samples[:, 0], 84) -
@@ -664,19 +664,22 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
                 BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=10000,
                                             p0=prior_fit, sigma=flam_err,
                                             bounds=(0, [T_max, np.inf]))
+
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
                 Terr_arr[i] = np.sqrt(np.diag(covar))[0]
                 R_arr[i] = np.abs(BBparams[1])
                 Rerr_arr[i] = np.sqrt(np.diag(covar))[1]
+                covar_arr[i] = covar[0,1]
                 prior_fit = BBparams
             except RuntimeWarning:
                 T_arr[i] = np.nan
                 R_arr[i] = np.nan
                 Terr_arr[i] = np.nan
                 Rerr_arr[i] = np.nan
+                covar_arr[i] = np.nan
 
-    return T_arr, R_arr, Terr_arr, Rerr_arr
+    return T_arr, R_arr, Terr_arr, Rerr_arr, covar_arr
 
 
 def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
@@ -713,7 +716,7 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     ------
     '''
     plot_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                           (int(np.ceil(np.max(lc[:, 0])))+1))
+                           (int(np.ceil(np.max(lc[:, 0])))+1),0.1)
 
     # Import a color map to make the plots look pretty
     cm = plt.get_cmap('rainbow')
@@ -786,7 +789,7 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     ------
     '''
     interp_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                             int(np.ceil(np.max(lc[:, 0])))+1)
+                             int(np.ceil(np.max(lc[:, 0])))+1, 0.1)
     fig, axarr = plt.subplots(2, 1, sharex=True)
 
     axarr[0].plot(interp_times, Tarr / 1.e3, color='k')
@@ -831,7 +834,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     ------
     '''
     plot_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                           int(np.ceil(np.max(lc[:, 0])))+1)
+                           int(np.ceil(np.max(lc[:, 0])))+1, 0.1)
 
     plt.plot(plot_times, bol_lum, color='k')
     plt.fill_between(plot_times, bol_lum-bol_err, bol_lum+bol_err,
@@ -885,7 +888,7 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     '''
 
     times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                      int(np.ceil(np.max(lc[:, 0])))+1)
+                      int(np.ceil(np.max(lc[:, 0])))+1, 0.1)
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
     dense_lc = np.hstack((np.reshape(-times, (len(times), 1)), dense_lc))
     tabledata = np.stack((Tarr / 1e3, Terr_arr / 1e3, Rarr / 1e15,
@@ -1056,14 +1059,16 @@ def main():
 
     if args.verbose:
         print('Fitting Blackbodies, this may take a few minutes...')
-    Tarr, Rarr, Terr_arr, Rerr_arr = fit_bb(dense_lc, wvs, args.mc, args.T_max)
+    Tarr, Rarr, Terr_arr, Rerr_arr, covar_arr = fit_bb(dense_lc, wvs, args.mc, args.T_max)
 
     # Calculate bolometric luminosity and error
     bol_lum = 4. * np.pi * Rarr**2 * sigsb * Tarr**4
+    covar_err = 2. * (4. * np.pi * sigsb)**2 * (2 * Rarr * Tarr**4) * (4 * Rarr**2 * Tarr**3) * covar_arr
     bol_err = 4. * np.pi * sigsb * np.sqrt(
                 (2. * Rarr * Tarr**4 * Rerr_arr)**2
                 + (4. * Tarr**3 * Rarr**2 * Terr_arr)**2
                 )
+    bol_err = np.sqrt(bol_err**2 + covar_err)
 
     if args.plot:
         if args.verbose:
