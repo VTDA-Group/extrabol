@@ -102,7 +102,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     errs = np.asarray(photometry_data[:, 2], dtype=float)
     if verbose:
         print('Getting Filter Data...')
-    index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom, wavelength_eff_max=30000*u.angstrom,timeout=3600)
+    index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom,
+                                    wavelength_eff_max=30000*u.angstrom,
+                                    timeout=3600)
     filterIDs = np.asarray(index['filterID'].data, dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data, dtype=float)
     widthEffs = np.asarray(index['WidthEff'].data, dtype=float)
@@ -175,7 +177,8 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
 
     # Set the peak flux to t=0
     peak_i = np.argmax(fluxes)
-    print('Peak time is,',phases[peak_i])
+    if verbose:
+        print('Peak Luminosity occurrs at MJD',phases[peak_i])
     phases = np.asarray(phases) - phases[peak_i]
 
     # Eliminate any data points outside of specified range
@@ -526,8 +529,8 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         # Get Test data so that the template can be plotted
         mean = snModel()
         for i in ufilts_in_angstrom:
-            test_wv = np.full((1, length_of_times, i))
-            test_times = np.arange(int(np.floor(np.min(times))+1),
+            test_wv = np.full((1, length_of_times), i)
+            test_times = np.arange(int(np.floor(np.min(times))),
                                    int(np.ceil(np.max(times))+1), 0.1)
             test_x = np.vstack((test_times, test_wv)).T
             test_y.append(mean.get_value(test_x))
@@ -557,7 +560,6 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
                       jac=grad_neg_ln_like,
                       bounds = bnds)
     gp.set_parameter_vector(result.x)
-    print(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
@@ -1059,11 +1061,13 @@ def main():
 
     if args.verbose:
         print('Fitting Blackbodies, this may take a few minutes...')
-    Tarr, Rarr, Terr_arr, Rerr_arr, covar_arr = fit_bb(dense_lc, wvs, args.mc, args.T_max)
+    Tarr, Rarr, Terr_arr, Rerr_arr, covar_arr = fit_bb(dense_lc, wvs, args.mc,
+                                                       args.T_max)
 
     # Calculate bolometric luminosity and error
     bol_lum = 4. * np.pi * Rarr**2 * sigsb * Tarr**4
-    covar_err = 2. * (4. * np.pi * sigsb)**2 * (2 * Rarr * Tarr**4) * (4 * Rarr**2 * Tarr**3) * covar_arr
+    covar_err = 2. * (4. * np.pi * sigsb)**2 * (2 * Rarr * Tarr**4) * \
+                (4 * Rarr**2 * Tarr**3) * covar_arr
     bol_err = 4. * np.pi * sigsb * np.sqrt(
                 (2. * Rarr * Tarr**4 * Rerr_arr)**2
                 + (4. * Tarr**3 * Rarr**2 * Terr_arr)**2
