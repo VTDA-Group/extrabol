@@ -243,10 +243,9 @@ def generate_template(filter_wv, sn_type):
         interpolated template
     '''
 
-    my_template_file = pkg_resources.resource_filename(
-                       'extrabol.template_bank', 'smoothed_sn' +
-                       sn_type + '.npz'
-                       )
+
+
+    my_template_file = importlib_resources.files('extrabol.template_bank') / ('smoothed_sn' + sn_type + '.npz')
     template = np.load(my_template_file)
     temp_times = template['time']
     temp_wavelength = template['wavelength']
