@@ -18,7 +18,7 @@ from scipy import interpolate as interp
 from george.modeling import Model
 import extinction
 import emcee
-import pkg_resources
+import importlib_resources
 
 # Define a few important constants that will be used later
 epsilon = 0.001
@@ -919,11 +919,8 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
 
 
 def main():
-
-    default_data = pkg_resources.resource_filename(
-                   'extrabol.example', 'SN2010bc.dat'
-                   )
-
+    default_data = importlib_resources.files('extrabol.example') / 'SN2010bc.dat'
+    default_data = str(default_data)
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',

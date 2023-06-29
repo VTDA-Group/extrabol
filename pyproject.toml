@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name="extrabol"
-version="1.0.1"
+version="1.0.2"
 readme = "README.md"
 authors = [
     {name = "Ian M. Thornton", email = "iot5037@psu.edu"},
@@ -19,6 +19,7 @@ dependencies=[
     "extinction",
     "emcee",
     "mkdocs >= 1.2.2",
+    "importlib_resources"
 ]
 classifiers=[
     "Programming Language :: Python :: 3",
@@ -36,7 +37,10 @@ Documentation = "https://extrabol.readthedocs.io/en/latest/"
 
 
 [tool.setuptools]
-packages=["extrabol"]
+packages=["extrabol",
+          "extrabol.template_bank",
+          "extrabol.example"
+         ]
 
 [tool.setuptools.package-data]
 "extrabol.example" = ["SN2010bc.dat"]
