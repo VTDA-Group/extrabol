@@ -1,8 +1,0 @@
-numpy >= 1.21.6
-astropy >= 4.3.1
-astroquery >= 0.4.6
-matplotlib >= 3.5.2
-george >= 0.4.0
-extinction >= 0.4.1
-emcee >= 3.1.2
-mkdocs >= 1.2.2

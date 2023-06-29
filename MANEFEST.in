@@ -1,0 +1,2 @@
+include extrabol/example/SN2010bc.dat
+include extrabol/template_bank/*.npz

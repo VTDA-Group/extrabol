@@ -1,8 +1,46 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "extrabol"
-authors = [{name = "Thornton", email = "iot5037@psu.edu"}]
-dynamic = ["version", "description"]
+name="extrabol"
+version="1.0.1"
+readme = "README.md"
+authors = [
+    {name = "Ian M. Thornton", email = "iot5037@psu.edu"},
+]
+description="Estimate SN bolometric light curves"
+dependencies=[
+    "numpy",
+    "astropy",
+    "astroquery",
+    "matplotlib",
+    "george",
+    "extinction",
+    "emcee",
+    "mkdocs >= 1.2.2",
+]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python='>=3.6'
+
+[project.scripts]
+extrabol = "extrabol.extrabol:main"
+
+[project.urls]
+Repository = "https://github.com/villrv/extrabol"
+Documentation = "https://extrabol.readthedocs.io/en/latest/"
+
+
+[tool.setuptools]
+packages=["extrabol"]
+
+[tool.setuptools.package-data]
+"extrabol.example" = ["SN2010bc.dat"]
+"extrabol.template_bank" = ["*.npz"]
+
+
+

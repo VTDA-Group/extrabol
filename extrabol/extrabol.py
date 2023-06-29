@@ -923,6 +923,7 @@ def main():
     default_data = pkg_resources.resource_filename(
                    'extrabol.example', 'SN2010bc.dat'
                    )
+
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
     parser.add_argument('snfile', nargs='?',
