@@ -134,7 +134,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
             gind = np.where(filterIDs == datapoint[3])
             zpts.append(float(zpts_all[gind[0]][0]))
 
-        flux = 10.**(mag/-2.5) * zpts[-1] * (1.+redshift)
+        flux = 10.**(mag/-2.5) * zpts[-1] / (1.+redshift)
 
         # Convert Flux to log-flux space
         # This is easier on the Gaussian Process
@@ -155,7 +155,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     # This will be undone after interpolation
     wv_corr = np.mean(wv_effs / (1.+redshift))
     flux_corr = np.min(fluxes) - 1.0
-    wv_effs = wv_effs - wv_corr
+    wv_effs = (wv_effs / (1.+redshift)) - wv_corr
     fluxes = np.asarray(fluxes) - flux_corr
 
     # Eliminate any data points bellow threshold snr
@@ -179,7 +179,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     peak_i = np.argmax(fluxes)
     if verbose:
         print('Peak Luminosity occurrs at MJD',phases[peak_i])
-    phases = np.asarray(phases) - phases[peak_i]
+    phases = (np.asarray(phases) - phases[peak_i]) / (1 + redshift)
 
     # Eliminate any data points outside of specified range
     # With respect to first data point
