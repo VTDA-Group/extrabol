@@ -459,7 +459,7 @@ def test(lc, wv_corr, z):
     return best_temp
 
 
-def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
+def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -476,6 +476,8 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         If False, use 0 as GP mean function
     z : float
         redshift
+    stepsize : float
+        Step size in days used for GP sampling
 
     Output
     ------
@@ -485,20 +487,20 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         A set of flux and wavelength values from the template, to be plotted
     test_times : numpy.array
         A set of time values to plot the template data against
+    dense_times : numpy.array
+        Highly sampled array of phases
     '''
 
-    lc = lc.T
+    # Extract light curve parameters
+    times, fluxes, wv_effs, errs, widths = lc
 
-    times = lc[:, 0]
-    fluxes = lc[:, 1]
-    wv_effs = lc[:, 2]
-    errs = lc[:, 3]
     stacked_data = np.vstack([times, wv_effs]).T
-    ufilts = np.unique(lc[:, 2])
+    ufilts = np.unique(wv_effs)
     ufilts_in_angstrom = ufilts*1000.0 + wv_corr
     nfilts = len(ufilts)
-    length_of_times = len(np.arange(int(np.floor(np.min(lc[:, 0]))),
-                           (int(np.ceil(np.max(lc[:, 0])))+1),0.1))
+    dense_times = np.arange(int(np.floor(np.min(times))),
+                           (int(np.ceil(np.max(times)))+1),stepsize)
+    length_of_times = len(dense_times)
     x_pred = np.zeros((length_of_times*nfilts, 2))
     dense_fluxes = np.zeros((length_of_times, nfilts))
     dense_errs = np.zeros((length_of_times, nfilts))
@@ -536,21 +538,21 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         test_y = np.asarray(test_y)
 
     # Set up gp
-    kernel = np.var(lc[:, 1]) \
+    kernel = np.var(fluxes) \
         * george.kernels.Matern32Kernel([12, 0.1], ndim=2)
     if not use_mean:
         gp = george.GP(kernel, mean=0)
     else:
         gp = george.GP(kernel, mean=snModel())
-    gp.compute(stacked_data, lc[:, -2])
+    gp.compute(stacked_data, errs)
 
     def neg_ln_like(p):
         gp.set_parameter_vector(p)
-        return -gp.log_likelihood(lc[:, 1])
+        return -gp.log_likelihood(fluxes)
 
     def grad_neg_ln_like(p):
         gp.set_parameter_vector(p)
-        return -gp.grad_log_likelihood(lc[:, 1])
+        return -gp.grad_log_likelihood(fluxes)
 
     # Optomize gp parameters
     bnds = ((None, None), (None, None), (None, None))
@@ -567,7 +569,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
     # Run gp to estimate interpolation
-    pred, pred_var = gp.predict(lc[:, 1], x_pred, return_var=True)
+    pred, pred_var = gp.predict(fluxes, x_pred, return_var=True)
 
     # Populate dense_lc with newly gp-predicted values
     for jj in np.arange(nfilts):
@@ -576,7 +578,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose):
         dense_errs[:, int(jj)] = np.sqrt(pred_var[gind])
     dense_lc = np.dstack((dense_fluxes, dense_errs))
 
-    return dense_lc, test_y, test_times
+    return dense_lc, test_y, test_times, dense_times
 
 
 def fit_bb(dense_lc, wvs, use_mcmc, T_max):
@@ -683,7 +685,7 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
     return T_arr, R_arr, Terr_arr, Rerr_arr, covar_arr
 
 
-def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
+def plot_gp(lc, dense_times, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
             outdir, sn_type, test_times, mean, show_template):
     '''
     Plot the GP-interpolate LC and save
@@ -692,6 +694,8 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     ----------
     lc : numpy.array
         Original LC data
+    dense_times : numpy.array
+        Highly sampled array of phases
     dense_lc : numpy.array
         GP-interpolated LC
     snname : string
@@ -716,8 +720,9 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     Output
     ------
     '''
-    plot_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                           (int(np.ceil(np.max(lc[:, 0])))+1),0.1)
+
+    # Extract light curve parameters
+    times, fluxes, wv_effs, errs, widths = lc
 
     # Import a color map to make the plots look pretty
     cm = plt.get_cmap('rainbow')
@@ -725,25 +730,25 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
 
     # Plot interpolation, template, and error (shaded areas)
     for jj in np.arange(len(wv_colors)):
-        plt.plot(plot_times, -dense_lc[:, jj, 0], color=cm(wv_colors[jj]),
+        plt.plot(dense_times, -dense_lc[:, jj, 0], color=cm(wv_colors[jj]),
                  label=my_filters[jj].split('/')[-1])
         if mean:
             if show_template:
                 plt.plot(test_times, -(test_data[jj, :] + flux_corr), '--',
                          color=cm(wv_colors[jj]))  # Template curves
-        plt.fill_between(plot_times,
+        plt.fill_between(dense_times,
                          -dense_lc[:, jj, 0] - dense_lc[:, jj, 1],
                          -dense_lc[:, jj, 0] + dense_lc[:, jj, 1],
                          color=cm(wv_colors[jj]), alpha=0.2)
 
     # Plot original data points and error bars
-    for i, filt in enumerate(np.unique(lc[:, 2])):
-        gind = np.where(lc[:, 2] == filt)
-        x = lc[gind, 0]
+    for i, filt in enumerate(np.unique(wv_effs)):
+        gind = np.where(wv_effs == filt)
+        x = times[gind]
         x = x.flatten()
-        y = -lc[gind, 1] - flux_corr
+        y = -fluxes[gind] - flux_corr
         y = y.flatten()
-        yerr = lc[gind, 3]
+        yerr = errs[gind]
         yerr = yerr.flatten()
 
         plt.plot(x, y, 'o', color=cm(wv_colors[i]))
@@ -763,14 +768,14 @@ def plot_gp(lc, dense_lc, snname, flux_corr, my_filters, wvs, test_data,
     return 1
 
 
-def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
+def plot_bb_ev(dense_times, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     '''
     Plot the BB temperature and radius as a function of time
 
     Parameters
     ----------
-    lc : numpy.array
-        Original LC data
+    dense_times : numpy.array
+        Highly sampled array of phases
     T_arr : numpy.array
         BB temperature array (K)
     R_arr : numpy.array
@@ -789,17 +794,16 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     Output
     ------
     '''
-    interp_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                             int(np.ceil(np.max(lc[:, 0])))+1, 0.1)
+
     fig, axarr = plt.subplots(2, 1, sharex=True)
 
-    axarr[0].plot(interp_times, Tarr / 1.e3, color='k')
-    axarr[0].fill_between(interp_times, Tarr/1.e3 - Terr_arr/1.e3,
+    axarr[0].plot(dense_times, Tarr / 1.e3, color='k')
+    axarr[0].fill_between(dense_times, Tarr/1.e3 - Terr_arr/1.e3,
                           Tarr/1.e3 + Terr_arr/1.e3, color='k', alpha=0.2)
     axarr[0].set_ylabel('Temp. (1000 K)')
 
-    axarr[1].plot(interp_times, Rarr / 1e15, color='k')
-    axarr[1].fill_between(interp_times, Rarr/1e15 - Rerr_arr/1e15,
+    axarr[1].plot(dense_times, Rarr / 1e15, color='k')
+    axarr[1].fill_between(dense_times, Rarr/1e15 - Rerr_arr/1e15,
                           Rarr/1e15 + Rerr_arr/1e15, color='k', alpha=0.2)
     axarr[1].set_ylabel(r'Radius ($10^{15}$ cm)')
 
@@ -812,14 +816,14 @@ def plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname, outdir, sn_type):
     return 1
 
 
-def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
+def plot_bb_bol(dense_times, bol_lum, bol_err, snname, outdir, sn_type):
     '''
     Plot the BB bolometric luminosity as a function of time
 
     Parameters
     ----------
-    lc : numpy.array
-        Original LC data
+    dense_times : numpy.array
+        Highly sampled array of phases
     bol_lum : numpy.array
         BB bolometric luminosity (erg/s)
     bol_err : numpy.array
@@ -834,11 +838,9 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     Output
     ------
     '''
-    plot_times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                           int(np.ceil(np.max(lc[:, 0])))+1, 0.1)
 
-    plt.plot(plot_times, bol_lum, color='k')
-    plt.fill_between(plot_times, bol_lum-bol_err, bol_lum+bol_err,
+    plt.plot(dense_times, bol_lum, color='k')
+    plt.fill_between(dense_times, bol_lum-bol_err, bol_lum+bol_err,
                      color='k', alpha=0.2)
 
     plt.title(snname + ' Bolometric Luminosity')
@@ -851,7 +853,7 @@ def plot_bb_bol(lc, bol_lum, bol_err, snname, outdir, sn_type):
     return 1
 
 
-def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
+def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                  bol_lum, bol_err, my_filters,
                  snname, outdir, sn_type):
     '''
@@ -861,6 +863,8 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     ----------
     lc : numpy.array
         Initial light curve
+    dense_times : numpy.array
+        Highly sampled array of phases
     dense_lc : numpy.array
         GP-interpolated LC
     T_arr : numpy.array
@@ -888,10 +892,8 @@ def write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     ------
     '''
 
-    times = np.arange(int(np.floor(np.min(lc[:, 0]))),
-                      int(np.ceil(np.max(lc[:, 0])))+1, 0.1)
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
-    dense_lc = np.hstack((np.reshape(-times, (len(times), 1)), dense_lc))
+    dense_lc = np.hstack((np.reshape(-dense_times, (len(dense_times), 1)), dense_lc))
     tabledata = np.stack((Tarr / 1e3, Terr_arr / 1e3, Rarr / 1e15,
                           Rerr_arr / 1e15, np.log10(bol_lum),
                           np.log10(bol_err))).T
@@ -960,6 +962,9 @@ def main():
                         help='The time of the latest \
                             data point to be accepted',
                         type=float, default=200)
+    parser.add_argument('-sz', '--stepsize',
+                        help='Step size in days of GP sampler',
+                        type=float, default=0.1)
     parser.add_argument('-snr',
                         help='The minimum signal to \
                             noise ratio to be accepted',
@@ -1044,11 +1049,10 @@ def main():
     if args.verbose:
         print('Using ' + str(sn_type) + ' template.')
 
-    dense_lc, test_data, test_times = interpolate(lc, wv_corr, sn_type,
+    dense_lc, test_data, test_times, dense_times = interpolate(lc, wv_corr, sn_type,
                                                   mean, args.redshift,
-                                                  args.verbose)
-    lc = lc.T
-    wvs, wvind = np.unique(lc[:, 2], return_index=True)
+                                                  args.verbose, args.stepsize)
+    wvs, wvind = np.unique(lc.T[:, 2], return_index=True)
     wvs = wvs*1000.0 + wv_corr
     my_filters = np.asarray(my_filters)
     ufilts = my_filters[wvind]
@@ -1074,15 +1078,15 @@ def main():
     if args.plot:
         if args.verbose:
             print('Making plots in ' + args.outdir)
-        plot_gp(lc, dense_lc, snname, flux_corr, ufilts, wvs, test_data,
+        plot_gp(lc, dense_times, dense_lc, snname, flux_corr, ufilts, wvs, test_data,
                 args.outdir, sn_type, test_times, mean, args.template)
-        plot_bb_ev(lc, Tarr, Rarr, Terr_arr, Rerr_arr, snname,
+        plot_bb_ev(dense_times, Tarr, Rarr, Terr_arr, Rerr_arr, snname,
                    args.outdir, sn_type)
-        plot_bb_bol(lc, bol_lum, bol_err, snname, args.outdir, sn_type)
+        plot_bb_bol(dense_times, bol_lum, bol_err, snname, args.outdir, sn_type)
 
     if args.verbose:
         print('Writing output to ' + args.outdir)
-    write_output(lc, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
+    write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                  bol_lum, bol_err, my_filters, snname, args.outdir, sn_type)
     print('job completed')
 
