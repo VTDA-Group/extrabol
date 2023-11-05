@@ -102,6 +102,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     errs = np.asarray(photometry_data[:, 2], dtype=float)
     if verbose:
         print('Getting Filter Data...')
+
     index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom,
                                     wavelength_eff_max=30000*u.angstrom,
                                     timeout=3600)
@@ -666,7 +667,9 @@ def fit_bb(dense_lc, wvs, use_mcmc, T_max):
             try:
                 BBparams, covar = curve_fit(bbody, wvs, flam, maxfev=10000,
                                             p0=prior_fit, sigma=flam_err,
-                                            bounds=(0, [T_max, np.inf]))
+                                            bounds=(0, [T_max, np.inf]),
+                                            method = 'dogbox', 
+                                            absolute_sigma=True)
 
                 # Get temperature and radius, with errors, from fit
                 T_arr[i] = BBparams[0]
