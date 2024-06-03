@@ -128,19 +128,17 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     zpts = []
     fluxes = []
     for datapoint in photometry_data:
-        mag = float(datapoint[1]) - dm
+        mag = float(datapoint[1]) - dm + 2.5 * np.log10(1. + redshift)  # cosmological k-correction
         if datapoint[-1] == 'AB':
-            zpts.append(3631.00)
+            zp = 0.
         else:
             gind = np.where(filterIDs == datapoint[3])
-            zpts.append(float(zpts_all[gind[0]][0]))
+            zp = 2.5 * np.log10(float(zpts_all[gind[0]][0]) / 3631.)
+        zpts.append(zp)
 
-        flux = 10.**(mag/-2.5) * zpts[-1] / (1.+redshift)
-
-        # Convert Flux to log-flux space
+        # 'fluxes' is the negative absolute AB magnitude
         # This is easier on the Gaussian Process
-        # 'fluxes' is also equivilant to the negative absolute magnitude
-        flux = 2.5 * (np.log10(flux)-np.log10(3631.00))
+        flux = zp - mag
         fluxes.append(flux)
 
     # Remove extinction
