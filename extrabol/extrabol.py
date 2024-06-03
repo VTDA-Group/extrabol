@@ -906,14 +906,15 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     for filt in ufilts:
         table_header.append(filt)
         table_header.append(filt + '_err')
-    table_header.extend(['Temp. (K)', 'Temp. Err. (K)]',
-                         'Radius (cm)', 'Radius Err. (cm)',
-                         'Bol. Lum. (erg/s)', 'Bol. Err. (erg/s)'])
+    format_dict = {head: '%0.3f' for head in table_header}
+    data_columns = ['Temp. (K)', 'Temp. Err. (K)',
+                    'Radius (cm)', 'Radius Err. (cm)',
+                    'Bol. Lum. (erg/s)', 'Bol. Err. (erg/s)']
+    table_header.extend(data_columns)
+    format_dict.update({head: '%0.3e' for head in data_columns})
     table = Table([*tabledata],
                   names=table_header,
                   meta={'name': 'first table'})
-
-    format_dict = {head: '%0.3e' for head in table_header}
     ascii.write(table, outdir + snname + '_' + str(sn_type) + '.txt',
                 formats=format_dict, overwrite=True)
 
