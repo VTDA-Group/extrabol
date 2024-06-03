@@ -458,7 +458,7 @@ def test(lc, wv_corr, z):
     return best_temp
 
 
-def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
+def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize, kernel_width=None):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -477,6 +477,9 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
         redshift
     stepsize : float
         Step size in days used for GP sampling
+    kernel_width : list of float
+        The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction.
+        If not given, the kernel width will be optimized.
 
     Output
     ------
@@ -538,28 +541,29 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
 
     # Set up gp
     kernel = np.var(fluxes) \
-        * george.kernels.Matern32Kernel([12, 0.1], ndim=2)
+        * george.kernels.Matern32Kernel(kernel_width or [12., 0.1], ndim=2)
     if not use_mean:
         gp = george.GP(kernel, mean=0)
     else:
         gp = george.GP(kernel, mean=snModel())
     gp.compute(stacked_data, errs)
 
-    def neg_ln_like(p):
-        gp.set_parameter_vector(p)
-        return -gp.log_likelihood(fluxes)
+    if kernel_width is None:
+        def neg_ln_like(p):
+            gp.set_parameter_vector(p)
+            return -gp.log_likelihood(fluxes)
 
-    def grad_neg_ln_like(p):
-        gp.set_parameter_vector(p)
-        return -gp.grad_log_likelihood(fluxes)
+        def grad_neg_ln_like(p):
+            gp.set_parameter_vector(p)
+            return -gp.grad_log_likelihood(fluxes)
 
-    # Optomize gp parameters
-    bnds = ((None, None), (None, None), (None, None))
-    result = minimize(neg_ln_like,
-                      gp.get_parameter_vector(),
-                      jac=grad_neg_ln_like,
-                      bounds = bnds)
-    gp.set_parameter_vector(result.x)
+        # Optimize gp parameters
+        bnds = ((None, None), (None, None), (None, None))
+        result = minimize(neg_ln_like,
+                          gp.get_parameter_vector(),
+                          jac=grad_neg_ln_like,
+                          bounds = bnds)
+        gp.set_parameter_vector(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
@@ -982,6 +986,10 @@ def main():
     parser.add_argument('--T_max', dest='T_max',  help='Temperature prior \
                                                         for black body fits',
                         type=float, default=40000.)
+    parser.add_argument('-k', '--kernel-width',
+                        help='The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction. \
+                              If not given, the kernel width will be optimized.',
+                        type=float, nargs=2)
 
     args = parser.parse_args()
 
