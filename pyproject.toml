@@ -13,7 +13,6 @@ description="Estimate SN bolometric light curves"
 dependencies=[
     "numpy",
     "astropy",
-    "astroquery",
     "matplotlib",
     "george",
     "extinction",
