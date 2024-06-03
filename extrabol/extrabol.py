@@ -893,10 +893,7 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     dense_lc = np.hstack((np.reshape(dense_times, (len(dense_times), 1)), dense_lc))
     tabledata = np.stack((Tarr, Terr_arr, Rarr, Rerr_arr, bol_lum, bol_err)).T
     tabledata = np.hstack((dense_lc, tabledata)).T
-
-    ufilts = np.unique(my_filters)
-    table_header = []
-    table_header.append('Time (MJD)')
+    table_header = ['Phase']
     for filt in ufilts:
         table_header.append(filt)
         table_header.append(filt + '_err')
