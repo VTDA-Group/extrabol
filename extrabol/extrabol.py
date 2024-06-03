@@ -890,23 +890,27 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     '''
 
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
-    dense_lc = np.hstack((np.reshape(-dense_times, (len(dense_times), 1)), dense_lc))
-    tabledata = np.stack((Tarr / 1e3, Terr_arr / 1e3, Rarr / 1e15,
-                          Rerr_arr / 1e15, np.log10(bol_lum),
-                          np.log10(bol_err))).T
-    tabledata = np.hstack((-dense_lc, tabledata)).T
-    table_header = ['Phase']
+    dense_lc = np.hstack((np.reshape(dense_times, (len(dense_times), 1)), dense_lc))
+    tabledata = np.stack((Tarr, Terr_arr, Rarr, Rerr_arr, bol_lum, bol_err)).T
+    tabledata = np.hstack((dense_lc, tabledata)).T
+
+    ufilts = np.unique(my_filters)
+    table_header = []
+    table_header.append('Time (MJD)')
     for filt in ufilts:
         table_header.append(filt)
         table_header.append(filt + '_err')
-    table_header.extend(['Temp./1e3 (K)', 'Temp. Err.',
-                         'Radius/1e15 (cm)', 'Radius Err.',
-                         'Log10(Bol. Lum)', 'Log10(Bol. Err)'])
+    format_dict = {head: '%0.3f' for head in table_header}
+    data_columns = ['Temp. (K)', 'Temp. Err. (K)',
+                    'Radius (cm)', 'Radius Err. (cm)',
+                    'Bol. Lum. (erg/s)', 'Bol. Err. (erg/s)']
+    table_header.extend(data_columns)
+    format_dict.update({head: '%0.3e' for head in data_columns})
     table = Table([*tabledata],
                   names=table_header,
                   meta={'name': 'first table'})
-
-    format_dict = {head: '%0.3f' for head in table_header}
+    for filt in ufilts:
+        table[filt] *= -1.
     ascii.write(table, outdir + snname + '_' + str(sn_type) + '.txt',
                 formats=format_dict, overwrite=True)
 
