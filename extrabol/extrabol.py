@@ -533,7 +533,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
         for i in ufilts_in_angstrom:
             test_wv = np.full((1, length_of_times), i)
             test_times = np.arange(int(np.floor(np.min(times))),
-                                   int(np.ceil(np.max(times))+1), 0.1)
+                                   int(np.ceil(np.max(times))+1), stepsize)
             test_x = np.vstack((test_times, test_wv)).T
             test_y.append(mean.get_value(test_x))
         test_y = np.asarray(test_y)
@@ -565,7 +565,7 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
-                                        int(np.ceil(np.max(times)))+1, 0.1)):
+                                        int(np.ceil(np.max(times)))+1, stepsize)):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 0] = [time] * nfilts
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
