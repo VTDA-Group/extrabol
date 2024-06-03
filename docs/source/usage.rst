@@ -57,9 +57,6 @@ The following arguments are available:
         Minimum signal to noise ratio for observations
         Default = 4.0
 
-    -wc, --wvcorr
-        Use the redshift-corrected wavelength values for extinction calculations
-
     -mc, --use-mcmc
         Use a Markov Chain Monte Carlo to fit black bodies instead of curve_fit.
         This provides better error estimates but takes much longer.
@@ -67,3 +64,7 @@ The following arguments are available:
     --T_max T_MAX
         Modify the prior on temperature for blackbody fits by specifying a maximum temperature.
         Default = 40,000K
+
+    -k, --kernel-width
+        The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction.
+        If not given, the kernel width will be optimized.

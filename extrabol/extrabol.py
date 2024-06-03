@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import numpy as np
-from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
 import george
 from scipy.optimize import minimize, curve_fit
@@ -57,7 +56,7 @@ def bbody(lam, T, R):
 
 
 def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
-                       use_wc, verbose):
+                       hostebv, verbose):
     '''
     Read in SN file
 
@@ -76,9 +75,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     snr : float
         The lowest signal to noise ratio to be accepted
     mwebv : float
-        Extinction to be removed
-    use_wc : bool
-        If True, use redshift corrected wv for extinction correction
+        Milky Way extinction to be removed (in the observed frame)
+    hostebv : bool
+        Host-galaxy extinction to be removed (in the rest frame)
 
     Output
     ------
@@ -99,12 +98,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     # Extract key information into seperate arrays
     phases = np.asarray(photometry_data[:, 0], dtype=float)
     errs = np.asarray(photometry_data[:, 2], dtype=float)
-    if verbose:
-        print('Getting Filter Data...')
 
-    index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom,
-                                    wavelength_eff_max=30000*u.angstrom,
-                                    timeout=3600)
+    filter_data = importlib_resources.files('extrabol.filter_data') / 'fps.xml'
+    index = Table.read(filter_data)
     filterIDs = np.asarray(index['filterID'].data, dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data, dtype=float)
     widthEffs = np.asarray(index['WidthEff'].data, dtype=float)
@@ -127,26 +123,21 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     zpts = []
     fluxes = []
     for datapoint in photometry_data:
-        mag = float(datapoint[1]) - dm
+        mag = float(datapoint[1]) - dm + 2.5 * np.log10(1. + redshift)  # cosmological k-correction
         if datapoint[-1] == 'AB':
-            zpts.append(3631.00)
+            zp = 0.
         else:
             gind = np.where(filterIDs == datapoint[3])
-            zpts.append(float(zpts_all[gind[0]][0]))
+            zp = 2.5 * np.log10(float(zpts_all[gind[0]][0]) / 3631.)
+        zpts.append(zp)
 
-        flux = 10.**(mag/-2.5) * zpts[-1] / (1.+redshift)
-
-        # Convert Flux to log-flux space
+        # 'fluxes' is the negative absolute AB magnitude
         # This is easier on the Gaussian Process
-        # 'fluxes' is also equivilant to the negative absolute magnitude
-        flux = 2.5 * (np.log10(flux)-np.log10(3631.00))
+        flux = zp - mag
         fluxes.append(flux)
 
     # Remove extinction
-    if use_wc:
-        ext = extinction.fm07(wv_effs / (1.+redshift), mwebv)
-    else:
-        ext = extinction.fm07(wv_effs, mwebv)
+    ext = extinction.fm07(wv_effs, mwebv * 3.1) + extinction.fm07(wv_effs / (1. + redshift), hostebv * 3.1)
     for i in np.arange(len(fluxes)):
         fluxes[i] = fluxes[i] + ext[i]
 
@@ -459,7 +450,7 @@ def test(lc, wv_corr, z):
     return best_temp
 
 
-def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
+def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize, kernel_width=None):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -478,6 +469,9 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
         redshift
     stepsize : float
         Step size in days used for GP sampling
+    kernel_width : list of float
+        The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction.
+        If not given, the kernel width will be optimized.
 
     Output
     ------
@@ -539,28 +533,29 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
 
     # Set up gp
     kernel = np.var(fluxes) \
-        * george.kernels.Matern32Kernel([12, 0.1], ndim=2)
+        * george.kernels.Matern32Kernel(kernel_width or [12., 0.1], ndim=2)
     if not use_mean:
         gp = george.GP(kernel, mean=0)
     else:
         gp = george.GP(kernel, mean=snModel())
     gp.compute(stacked_data, errs)
 
-    def neg_ln_like(p):
-        gp.set_parameter_vector(p)
-        return -gp.log_likelihood(fluxes)
+    if kernel_width is None:
+        def neg_ln_like(p):
+            gp.set_parameter_vector(p)
+            return -gp.log_likelihood(fluxes)
 
-    def grad_neg_ln_like(p):
-        gp.set_parameter_vector(p)
-        return -gp.grad_log_likelihood(fluxes)
+        def grad_neg_ln_like(p):
+            gp.set_parameter_vector(p)
+            return -gp.grad_log_likelihood(fluxes)
 
-    # Optomize gp parameters
-    bnds = ((None, None), (None, None), (None, None))
-    result = minimize(neg_ln_like,
-                      gp.get_parameter_vector(),
-                      jac=grad_neg_ln_like,
-                      bounds = bnds)
-    gp.set_parameter_vector(result.x)
+        # Optimize gp parameters
+        bnds = ((None, None), (None, None), (None, None))
+        result = minimize(neg_ln_like,
+                          gp.get_parameter_vector(),
+                          jac=grad_neg_ln_like,
+                          bounds = bnds)
+        gp.set_parameter_vector(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
@@ -948,12 +943,10 @@ def main():
                         action="store_true", default=True)
     parser.add_argument("--outdir", help="Output directory", dest='outdir',
                         type=str, default='./products/')
-    parser.add_argument("--ebv", help="MWebv", dest='ebv',
-                        type=float, default=-1.)
-    # Ebv won't =-1
-    # this is another flag to be replaced later
-    parser.add_argument("--hostebv", help="Host B-V", dest='hostebv',
-                        type=float, default=0.0)
+    parser.add_argument("--ebv", help="Milky Way E(B-V)", dest='ebv',
+                        type=float, default=0.)
+    parser.add_argument("--hostebv", help="Host-galaxy E(B-V)", dest='hostebv',
+                        type=float, default=0.)
     parser.add_argument('-s', '--start',
                         help='The time of the earliest \
                             data point to be accepted',
@@ -969,10 +962,6 @@ def main():
                         help='The minimum signal to \
                             noise ratio to be accepted',
                         type=float, default=4)
-    parser.add_argument('-wc', '--wvcorr',
-                        help='Use the redshift-corrected \
-                            wavelenghts for extinction calculations',
-                        action="store_true")
     parser.add_argument('-mc', '--use_mcmc', dest='mc',
                         help='Use a Markov Chain Monte Carlo \
                               to fit BBs instead of curve_fit. This will \
@@ -981,6 +970,10 @@ def main():
     parser.add_argument('--T_max', dest='T_max',  help='Temperature prior \
                                                         for black body fits',
                         type=float, default=40000.)
+    parser.add_argument('-k', '--kernel-width',
+                        help='The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction. \
+                              If not given, the kernel width will be optimized.',
+                        type=float, nargs=2)
 
     args = parser.parse_args()
 
@@ -1039,8 +1032,9 @@ def main():
                                                             redshift,
                                                             args.start,
                                                             args.end, args.snr,
-                                                            ebv,
                                                             args.wvcorr,
+                                                            args.ebv,
+                                                            args.hostebv,
                                                             args.verbose)
 
     # Test which template fits the data best
