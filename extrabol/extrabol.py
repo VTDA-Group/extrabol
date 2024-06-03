@@ -896,9 +896,9 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     '''
 
     dense_lc = np.reshape(dense_lc, (len(dense_lc), -1))
-    dense_lc = np.hstack((np.reshape(-dense_times, (len(dense_times), 1)), dense_lc))
+    dense_lc = np.hstack((np.reshape(dense_times, (len(dense_times), 1)), dense_lc))
     tabledata = np.stack((Tarr, Terr_arr, Rarr, Rerr_arr, bol_lum, bol_err)).T
-    tabledata = np.hstack((-dense_lc, tabledata)).T
+    tabledata = np.hstack((dense_lc, tabledata)).T
 
     ufilts = np.unique(my_filters)
     table_header = []
@@ -915,6 +915,8 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     table = Table([*tabledata],
                   names=table_header,
                   meta={'name': 'first table'})
+    for filt in ufilts:
+        table[filt] *= -1.
     ascii.write(table, outdir + snname + '_' + str(sn_type) + '.txt',
                 formats=format_dict, overwrite=True)
 
