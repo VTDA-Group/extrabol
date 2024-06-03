@@ -857,7 +857,7 @@ def plot_bb_bol(dense_times, bol_lum, bol_err, snname, outdir, sn_type):
 
 
 def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
-                 bol_lum, bol_err, my_filters,
+                 bol_lum, bol_err, ufilts,
                  snname, outdir, sn_type):
     '''
     Write out the interpolated LC and BB information
@@ -882,7 +882,7 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
         BB luminosity (erg/s)
     bol_err : numpy.array
         BB luminosity error (erg/s)
-    my_filters : list
+    ufilts : list
         List of filter names
     snname : string
         SN Name
@@ -901,10 +901,7 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                           Rerr_arr / 1e15, np.log10(bol_lum),
                           np.log10(bol_err))).T
     tabledata = np.hstack((-dense_lc, tabledata)).T
-
-    ufilts = np.unique(my_filters)
-    table_header = []
-    table_header.append('Time (MJD)')
+    table_header = ['Phase']
     for filt in ufilts:
         table_header.append(filt)
         table_header.append(filt + '_err')
@@ -1090,7 +1087,7 @@ def main():
     if args.verbose:
         print('Writing output to ' + args.outdir)
     write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
-                 bol_lum, bol_err, my_filters, snname, args.outdir, sn_type)
+                 bol_lum, bol_err, ufilts, snname, args.outdir, sn_type)
     print('job completed')
 
 
