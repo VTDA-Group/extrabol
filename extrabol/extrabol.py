@@ -7,7 +7,6 @@ import george
 from scipy.optimize import minimize, curve_fit
 import argparse
 from astropy.cosmology import Planck13 as cosmo
-from astropy.cosmology import z_at_value
 from astropy import units as u
 import os
 from astropy.table import Table
@@ -938,12 +937,10 @@ def main():
                         action='store_true',
                         help="Shows template function on plots")
     parser.add_argument('-d', '--dist', dest='distance', type=float,
-                        help='Object luminosity distance', default=1e-5)
+                        help='Object luminosity distance in Mpc')
     parser.add_argument('-z', '--redshift', dest='redshift', type=float,
-                        help='Object redshift', default=-1.)
-    # Redshift can't =-1
-    # this is simply a flag to be replaced later
-    parser.add_argument('--dm', dest='dm', type=float, default=0,
+                        help='Object redshift')
+    parser.add_argument('--dm', dest='dm', type=float,
                         help='Object distance modulus')
     parser.add_argument("--verbose", help="increase output verbosity",
                         action="store_true")
@@ -998,35 +995,35 @@ def main():
         sn_type = sn_type
         mean = True
 
-    # If redshift or ebv aren't specified by the user,
-    # we read them in from the file here
-    if args.redshift == -1 or args.ebv == -1:
-        # Read in redshift and ebv and replace values if not specified
-        f = open(args.snfile, 'r')
-        if args.redshift == -1:
-            args.redshift = float(f.readline())
-            if args.ebv == -1:
-                args.ebv = float(f.readline())
-        if args.ebv == -1:
-            args.ebv = float(f.readline())
-            args.ebv = float(f.readline())
-        f.close
+    # Read redshift and ebv from the file
+    with open(args.snfile, 'r') as f:
+        redshift = float(f.readline())
+        ebv = float(f.readline())
+    if args.redshift is not None:
+        if args.redshift != redshift and args.verbose:
+            print(f'Overriding redshift in file {redshift:f} with {args.redshift:f}')
+        redshift = args.redshift
+    if args.ebv is not None:
+        if args.ebv != ebv and args.verbose:
+            print(f'Overriding E(B-V) in file {ebv:f} with {args.ebv:f}')
+        ebv = args.ebv
 
-    # Solve for redshift, distance, and/or dm if possible
+    # Solve for distance modulus if possible
     # if not, assume that data is already in absolute magnitudes
-    if args.redshift != 0 or args.distance != 1e-5 or args.dm != 0:
-        if args.redshift != 0:
-            args.distance = cosmo.luminosity_distance(args.redshift).value
-            args.dm = cosmo.distmod(args.redshift).value
-        elif args.distance != 1e-5:
-            args.redshift = z_at_value(cosmo.luminosity_distance, distance
-                                       * u.Mpc)
-            dm = cosmo.distmod(args.redshift).value
-        else:
-            args.redshift = z_at_value(cosmo.distmod, dm * u.mag)
-            distance = cosmo.luminosity_distance(args.redshift).value
-    elif args.verbose:
-        print('Assuming absolute magnitudes.')
+    if args.dm is not None:
+        dm = args.dm
+    elif args.distance is not None:
+        dm = 5. * np.log10(args.distance * 1e5)
+        if args.verbose:
+            print(f'Calculating distance modulus {dm:f} from distance {args.distance:f} Mpc')
+    elif redshift > 0.:
+        dm = cosmo.distmod(redshift).value
+        if args.verbose:
+            print(f'Calculating distance modulus {dm:f} from redshift {redshift:f}')
+    else:
+        dm = 0.
+        if args.verbose:
+            print('Assuming absolute magnitudes.')
 
     # Make sure outdir name is formatted correctly
     if args.outdir[-1] != '/':
@@ -1038,11 +1035,11 @@ def main():
     snname = ('.').join(args.snfile.split('.')[: -1]).split('/')[-1]
 
     lc, wv_corr, flux_corr, my_filters = read_in_photometry(args.snfile,
-                                                            args.dm,
-                                                            args.redshift,
+                                                            dm,
+                                                            redshift,
                                                             args.start,
                                                             args.end, args.snr,
-                                                            args.ebv,
+                                                            ebv,
                                                             args.wvcorr,
                                                             args.verbose)
 
