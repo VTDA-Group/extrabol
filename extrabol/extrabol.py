@@ -57,7 +57,7 @@ def bbody(lam, T, R):
 
 
 def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
-                       use_wc, verbose):
+                       hostebv, verbose):
     '''
     Read in SN file
 
@@ -76,9 +76,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     snr : float
         The lowest signal to noise ratio to be accepted
     mwebv : float
-        Extinction to be removed
-    use_wc : bool
-        If True, use redshift corrected wv for extinction correction
+        Milky Way extinction to be removed (in the observed frame)
+    hostebv : bool
+        Host-galaxy extinction to be removed (in the rest frame)
 
     Output
     ------
@@ -138,10 +138,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
         fluxes.append(flux)
 
     # Remove extinction
-    if use_wc:
-        ext = extinction.fm07(wv_effs / (1.+redshift), mwebv)
-    else:
-        ext = extinction.fm07(wv_effs, mwebv)
+    ext = extinction.fm07(wv_effs, mwebv * 3.1) + extinction.fm07(wv_effs / (1. + redshift), hostebv * 3.1)
     for i in np.arange(len(fluxes)):
         fluxes[i] = fluxes[i] + ext[i]
 
@@ -949,12 +946,10 @@ def main():
                         action="store_true", default=True)
     parser.add_argument("--outdir", help="Output directory", dest='outdir',
                         type=str, default='./products/')
-    parser.add_argument("--ebv", help="MWebv", dest='ebv',
-                        type=float, default=-1.)
-    # Ebv won't =-1
-    # this is another flag to be replaced later
-    parser.add_argument("--hostebv", help="Host B-V", dest='hostebv',
-                        type=float, default=0.0)
+    parser.add_argument("--ebv", help="Milky Way E(B-V)", dest='ebv',
+                        type=float, default=0.)
+    parser.add_argument("--hostebv", help="Host-galaxy E(B-V)", dest='hostebv',
+                        type=float, default=0.)
     parser.add_argument('-s', '--start',
                         help='The time of the earliest \
                             data point to be accepted',
@@ -970,10 +965,6 @@ def main():
                         help='The minimum signal to \
                             noise ratio to be accepted',
                         type=float, default=4)
-    parser.add_argument('-wc', '--wvcorr',
-                        help='Use the redshift-corrected \
-                            wavelenghts for extinction calculations',
-                        action="store_true")
     parser.add_argument('-mc', '--use_mcmc', dest='mc',
                         help='Use a Markov Chain Monte Carlo \
                               to fit BBs instead of curve_fit. This will \
@@ -1045,7 +1036,7 @@ def main():
                                                             args.start,
                                                             args.end, args.snr,
                                                             args.ebv,
-                                                            args.wvcorr,
+                                                            args.hostebv,
                                                             args.verbose)
 
     # Test which template fits the data best

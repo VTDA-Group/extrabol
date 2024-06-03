@@ -73,9 +73,6 @@ Optional Arguments:
     Minimum signal to noise ratio for observations
     Default = 4.0
 
--wc, --wvcorr
-    Use the redshift-corrected wavelength values for extinction calculations
-
 -mc, --use-mcmc
     Use a Markov Chain Monte Carlo to fit black bodies instead of curve_fit.
     This provides better error estimates but takes much longer.
