@@ -67,3 +67,7 @@ The following arguments are available:
     --T_max T_MAX
         Modify the prior on temperature for blackbody fits by specifying a maximum temperature.
         Default = 40,000K
+
+    -k, --kernel-width
+        The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction.
+        If not given, the kernel width will be optimized.
