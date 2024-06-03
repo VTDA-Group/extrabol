@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import numpy as np
-from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
 import george
 from scipy.optimize import minimize, curve_fit
@@ -100,12 +99,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     # Extract key information into seperate arrays
     phases = np.asarray(photometry_data[:, 0], dtype=float)
     errs = np.asarray(photometry_data[:, 2], dtype=float)
-    if verbose:
-        print('Getting Filter Data...')
 
-    index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom,
-                                    wavelength_eff_max=30000*u.angstrom,
-                                    timeout=3600)
+    filter_data = importlib_resources.files('extrabol.filter_data') / 'fps.xml'
+    index = Table.read(filter_data)
     filterIDs = np.asarray(index['filterID'].data, dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data, dtype=float)
     widthEffs = np.asarray(index['WidthEff'].data, dtype=float)
