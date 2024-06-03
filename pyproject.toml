@@ -43,6 +43,7 @@ packages=["extrabol",
 
 [tool.setuptools.package-data]
 "extrabol.example" = ["SN2010bc.dat"]
+"extrabol.filter_data" = ["fps.xml"]
 "extrabol.template_bank" = ["*.npz"]
 
 
