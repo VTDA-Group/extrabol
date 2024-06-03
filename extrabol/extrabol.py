@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 import numpy as np
-from astroquery.svo_fps import SvoFps
 import matplotlib.pyplot as plt
 import george
 from scipy.optimize import minimize, curve_fit
 import argparse
 from astropy.cosmology import Planck13 as cosmo
-from astropy.cosmology import z_at_value
 from astropy import units as u
 import os
 from astropy.table import Table
@@ -58,7 +56,7 @@ def bbody(lam, T, R):
 
 
 def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
-                       use_wc, verbose):
+                       hostebv, verbose):
     '''
     Read in SN file
 
@@ -77,9 +75,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     snr : float
         The lowest signal to noise ratio to be accepted
     mwebv : float
-        Extinction to be removed
-    use_wc : bool
-        If True, use redshift corrected wv for extinction correction
+        Milky Way extinction to be removed (in the observed frame)
+    hostebv : bool
+        Host-galaxy extinction to be removed (in the rest frame)
 
     Output
     ------
@@ -100,12 +98,9 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     # Extract key information into seperate arrays
     phases = np.asarray(photometry_data[:, 0], dtype=float)
     errs = np.asarray(photometry_data[:, 2], dtype=float)
-    if verbose:
-        print('Getting Filter Data...')
 
-    index = SvoFps.get_filter_index(wavelength_eff_min=100*u.angstrom,
-                                    wavelength_eff_max=30000*u.angstrom,
-                                    timeout=3600)
+    filter_data = importlib_resources.files('extrabol.filter_data') / 'fps.xml'
+    index = Table.read(filter_data)
     filterIDs = np.asarray(index['filterID'].data, dtype=str)
     wavelengthEffs = np.asarray(index['WavelengthEff'].data, dtype=float)
     widthEffs = np.asarray(index['WidthEff'].data, dtype=float)
@@ -128,26 +123,21 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     zpts = []
     fluxes = []
     for datapoint in photometry_data:
-        mag = float(datapoint[1]) - dm
+        mag = float(datapoint[1]) - dm + 2.5 * np.log10(1. + redshift)  # cosmological k-correction
         if datapoint[-1] == 'AB':
-            zpts.append(3631.00)
+            zp = 0.
         else:
             gind = np.where(filterIDs == datapoint[3])
-            zpts.append(float(zpts_all[gind[0]][0]))
+            zp = 2.5 * np.log10(float(zpts_all[gind[0]][0]) / 3631.)
+        zpts.append(zp)
 
-        flux = 10.**(mag/-2.5) * zpts[-1] / (1.+redshift)
-
-        # Convert Flux to log-flux space
+        # 'fluxes' is the negative absolute AB magnitude
         # This is easier on the Gaussian Process
-        # 'fluxes' is also equivilant to the negative absolute magnitude
-        flux = 2.5 * (np.log10(flux)-np.log10(3631.00))
+        flux = zp - mag
         fluxes.append(flux)
 
     # Remove extinction
-    if use_wc:
-        ext = extinction.fm07(wv_effs / (1.+redshift), mwebv)
-    else:
-        ext = extinction.fm07(wv_effs, mwebv)
+    ext = extinction.fm07(wv_effs, mwebv * 3.1) + extinction.fm07(wv_effs / (1. + redshift), hostebv * 3.1)
     for i in np.arange(len(fluxes)):
         fluxes[i] = fluxes[i] + ext[i]
 
@@ -460,7 +450,7 @@ def test(lc, wv_corr, z):
     return best_temp
 
 
-def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
+def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize, kernel_width=None):
     '''
     Interpolate the LC using a 2D Gaussian Process (GP)
 
@@ -479,6 +469,9 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
         redshift
     stepsize : float
         Step size in days used for GP sampling
+    kernel_width : list of float
+        The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction.
+        If not given, the kernel width will be optimized.
 
     Output
     ------
@@ -533,39 +526,40 @@ def interpolate(lc, wv_corr, sn_type, use_mean, z, verbose, stepsize):
         for i in ufilts_in_angstrom:
             test_wv = np.full((1, length_of_times), i)
             test_times = np.arange(int(np.floor(np.min(times))),
-                                   int(np.ceil(np.max(times))+1), 0.1)
+                                   int(np.ceil(np.max(times))+1), stepsize)
             test_x = np.vstack((test_times, test_wv)).T
             test_y.append(mean.get_value(test_x))
         test_y = np.asarray(test_y)
 
     # Set up gp
     kernel = np.var(fluxes) \
-        * george.kernels.Matern32Kernel([12, 0.1], ndim=2)
+        * george.kernels.Matern32Kernel(kernel_width or [12., 0.1], ndim=2)
     if not use_mean:
         gp = george.GP(kernel, mean=0)
     else:
         gp = george.GP(kernel, mean=snModel())
     gp.compute(stacked_data, errs)
 
-    def neg_ln_like(p):
-        gp.set_parameter_vector(p)
-        return -gp.log_likelihood(fluxes)
+    if kernel_width is None:
+        def neg_ln_like(p):
+            gp.set_parameter_vector(p)
+            return -gp.log_likelihood(fluxes)
 
-    def grad_neg_ln_like(p):
-        gp.set_parameter_vector(p)
-        return -gp.grad_log_likelihood(fluxes)
+        def grad_neg_ln_like(p):
+            gp.set_parameter_vector(p)
+            return -gp.grad_log_likelihood(fluxes)
 
-    # Optomize gp parameters
-    bnds = ((None, None), (None, None), (None, None))
-    result = minimize(neg_ln_like,
-                      gp.get_parameter_vector(),
-                      jac=grad_neg_ln_like,
-                      bounds = bnds)
-    gp.set_parameter_vector(result.x)
+        # Optimize gp parameters
+        bnds = ((None, None), (None, None), (None, None))
+        result = minimize(neg_ln_like,
+                          gp.get_parameter_vector(),
+                          jac=grad_neg_ln_like,
+                          bounds = bnds)
+        gp.set_parameter_vector(result.x)
 
     # Populate arrays with time and wavelength values to be fed into gp
     for jj, time in enumerate(np.arange(int(np.floor(np.min(times))),
-                                        int(np.ceil(np.max(times)))+1, 0.1)):
+                                        int(np.ceil(np.max(times)))+1, stepsize)):
         x_pred[jj*nfilts: jj*nfilts+nfilts, 0] = [time] * nfilts
         x_pred[jj*nfilts: jj*nfilts+nfilts, 1] = ufilts
 
@@ -857,7 +851,7 @@ def plot_bb_bol(dense_times, bol_lum, bol_err, snname, outdir, sn_type):
 
 
 def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
-                 bol_lum, bol_err, my_filters,
+                 bol_lum, bol_err, ufilts,
                  snname, outdir, sn_type):
     '''
     Write out the interpolated LC and BB information
@@ -882,7 +876,7 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
         BB luminosity (erg/s)
     bol_err : numpy.array
         BB luminosity error (erg/s)
-    my_filters : list
+    ufilts : list
         List of filter names
     snname : string
         SN Name
@@ -939,12 +933,10 @@ def main():
                         action='store_true',
                         help="Shows template function on plots")
     parser.add_argument('-d', '--dist', dest='distance', type=float,
-                        help='Object luminosity distance', default=1e-5)
+                        help='Object luminosity distance in Mpc')
     parser.add_argument('-z', '--redshift', dest='redshift', type=float,
-                        help='Object redshift', default=-1.)
-    # Redshift can't =-1
-    # this is simply a flag to be replaced later
-    parser.add_argument('--dm', dest='dm', type=float, default=0,
+                        help='Object redshift')
+    parser.add_argument('--dm', dest='dm', type=float,
                         help='Object distance modulus')
     parser.add_argument("--verbose", help="increase output verbosity",
                         action="store_true")
@@ -952,12 +944,10 @@ def main():
                         action="store_true", default=True)
     parser.add_argument("--outdir", help="Output directory", dest='outdir',
                         type=str, default='./products/')
-    parser.add_argument("--ebv", help="MWebv", dest='ebv',
-                        type=float, default=-1.)
-    # Ebv won't =-1
-    # this is another flag to be replaced later
-    parser.add_argument("--hostebv", help="Host B-V", dest='hostebv',
-                        type=float, default=0.0)
+    parser.add_argument("--ebv", help="Milky Way E(B-V)", dest='ebv',
+                        type=float, default=0.)
+    parser.add_argument("--hostebv", help="Host-galaxy E(B-V)", dest='hostebv',
+                        type=float, default=0.)
     parser.add_argument('-s', '--start',
                         help='The time of the earliest \
                             data point to be accepted',
@@ -973,10 +963,6 @@ def main():
                         help='The minimum signal to \
                             noise ratio to be accepted',
                         type=float, default=4)
-    parser.add_argument('-wc', '--wvcorr',
-                        help='Use the redshift-corrected \
-                            wavelenghts for extinction calculations',
-                        action="store_true")
     parser.add_argument('-mc', '--use_mcmc', dest='mc',
                         help='Use a Markov Chain Monte Carlo \
                               to fit BBs instead of curve_fit. This will \
@@ -985,6 +971,10 @@ def main():
     parser.add_argument('--T_max', dest='T_max',  help='Temperature prior \
                                                         for black body fits',
                         type=float, default=40000.)
+    parser.add_argument('-k', '--kernel-width',
+                        help='The width (:math:`r^2`) of the GP kernel in the (time, wavelength) direction. \
+                              If not given, the kernel width will be optimized.',
+                        type=float, nargs=2)
 
     args = parser.parse_args()
 
@@ -999,35 +989,35 @@ def main():
         sn_type = sn_type
         mean = True
 
-    # If redshift or ebv aren't specified by the user,
-    # we read them in from the file here
-    if args.redshift == -1 or args.ebv == -1:
-        # Read in redshift and ebv and replace values if not specified
-        f = open(args.snfile, 'r')
-        if args.redshift == -1:
-            args.redshift = float(f.readline())
-            if args.ebv == -1:
-                args.ebv = float(f.readline())
-        if args.ebv == -1:
-            args.ebv = float(f.readline())
-            args.ebv = float(f.readline())
-        f.close
+    # Read redshift and ebv from the file
+    with open(args.snfile, 'r') as f:
+        redshift = float(f.readline())
+        ebv = float(f.readline())
+    if args.redshift is not None:
+        if args.redshift != redshift and args.verbose:
+            print(f'Overriding redshift in file {redshift:f} with {args.redshift:f}')
+        redshift = args.redshift
+    if args.ebv is not None:
+        if args.ebv != ebv and args.verbose:
+            print(f'Overriding E(B-V) in file {ebv:f} with {args.ebv:f}')
+        ebv = args.ebv
 
-    # Solve for redshift, distance, and/or dm if possible
+    # Solve for distance modulus if possible
     # if not, assume that data is already in absolute magnitudes
-    if args.redshift != 0 or args.distance != 1e-5 or args.dm != 0:
-        if args.redshift != 0:
-            args.distance = cosmo.luminosity_distance(args.redshift).value
-            args.dm = cosmo.distmod(args.redshift).value
-        elif args.distance != 1e-5:
-            args.redshift = z_at_value(cosmo.luminosity_distance, distance
-                                       * u.Mpc)
-            dm = cosmo.distmod(args.redshift).value
-        else:
-            args.redshift = z_at_value(cosmo.distmod, dm * u.mag)
-            distance = cosmo.luminosity_distance(args.redshift).value
-    elif args.verbose:
-        print('Assuming absolute magnitudes.')
+    if args.dm is not None:
+        dm = args.dm
+    elif args.distance is not None:
+        dm = 5. * np.log10(args.distance * 1e5)
+        if args.verbose:
+            print(f'Calculating distance modulus {dm:f} from distance {args.distance:f} Mpc')
+    elif redshift > 0.:
+        dm = cosmo.distmod(redshift).value
+        if args.verbose:
+            print(f'Calculating distance modulus {dm:f} from redshift {redshift:f}')
+    else:
+        dm = 0.
+        if args.verbose:
+            print('Assuming absolute magnitudes.')
 
     # Make sure outdir name is formatted correctly
     if args.outdir[-1] != '/':
@@ -1039,12 +1029,13 @@ def main():
     snname = ('.').join(args.snfile.split('.')[: -1]).split('/')[-1]
 
     lc, wv_corr, flux_corr, my_filters = read_in_photometry(args.snfile,
-                                                            args.dm,
-                                                            args.redshift,
+                                                            dm,
+                                                            redshift,
                                                             args.start,
                                                             args.end, args.snr,
-                                                            args.ebv,
                                                             args.wvcorr,
+                                                            args.ebv,
+                                                            args.hostebv,
                                                             args.verbose)
 
     # Test which template fits the data best
@@ -1091,7 +1082,7 @@ def main():
     if args.verbose:
         print('Writing output to ' + args.outdir)
     write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
-                 bol_lum, bol_err, my_filters, snname, args.outdir, sn_type)
+                 bol_lum, bol_err, ufilts, snname, args.outdir, sn_type)
     print('job completed')
 
 
