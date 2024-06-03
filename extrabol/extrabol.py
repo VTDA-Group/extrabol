@@ -128,7 +128,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     zpts = []
     fluxes = []
     for datapoint in photometry_data:
-        mag = float(datapoint[1]) - dm
+        mag = float(datapoint[1]) - dm + 2.5 * np.log10(1. + redshift)  # cosmological k-correction
         if datapoint[-1] == 'AB':
             zpts.append(3631.00)
         else:
