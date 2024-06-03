@@ -1030,7 +1030,7 @@ def main():
                                                             redshift,
                                                             args.start,
                                                             args.end, args.snr,
-                                                            args.ebv,
+                                                            ebv,
                                                             args.hostebv,
                                                             args.verbose)
 
