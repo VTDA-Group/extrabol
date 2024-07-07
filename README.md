@@ -87,10 +87,14 @@ Optional Arguments:
 ```
 ## Input Files
 
-Inputs to extrabol must be .dat files that conform to the following format.
 
-The first two lines must contain redshift and Milky Way extinction E(b-v) respectively. If these values are unknown, simply put 0.0.
+*SNANA format*: The metadata section contains key-value pairs, each on a new line, followed by the observational data section. The observational data is defined by the VARLIST line and is preceded by a metadata section.
+
+The observational data lines must start with 'OBS:' followed by values corresponding to the variables listed in the VARLIST line.
+
+*extrabol format*: The first two lines must contain redshift and Milky Way extinction E(B-V) respectively. If these values are unknown, simply put 0.0.
 The following lines contain observational data in 5 columns as shown below:
+
 
 ```
 Time(MJD)   Apparent Magnitude   Error(in magnitudes)   Filter SVO ID   Type of magnitude (AB or Vega)
