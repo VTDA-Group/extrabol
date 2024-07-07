@@ -17,6 +17,9 @@ from george.modeling import Model
 import extinction
 import emcee
 import importlib_resources
+import pandas as pd
+import re
+
 
 # Define a few important constants that will be used later
 epsilon = 0.001
@@ -54,6 +57,85 @@ def bbody(lam, T, R):
     return lum
 
 
+import pandas as pd
+import re
+
+def read_snana_file(file_path):
+    '''
+    Reads a SNANA file and extracts metadata and observational data.
+    Written by ChatGPT! Thanks, ChatGPT.
+
+    Parameters
+    ----------
+    file_path : str
+        The path to the SNANA file.
+
+    Returns
+    -------
+    metadata : dict
+        A dictionary containing the metadata from the file. Metadata includes all lines before the "NOBS" line that lack a hashtag/pound sign.
+        If a value contains a '+-' (e.g., '0.0076 +- 0.0003'), only the float value before '+-' is extracted.
+    data_df : pandas.DataFrame
+        A pandas DataFrame containing the observational data. The columns are defined by the 'VARLIST' line, and the observations follow the 'OBS' lines.
+        Each row corresponds to an observation, with columns as specified in 'VARLIST'.
+    
+    Example
+    -------
+    >>> metadata, data_df = read_snana_file('path_to_your_snana_file.txt')
+    >>> print(metadata)
+    {'SURVEY': 'Archival', 'SNID': 'SN2010bc', 'IAUC': 'SN2010bc', 'RA': '162.02942', 'DECL': '56.85011', 'MWEBV': '0.0076', 'REDSHIFT_FINAL': '0.2440', 'SEARCH_PEAKMJD': '55222.5', 'FILTERS': 'griz'}
+    >>> print(data_df.head())
+          MJD                  FLT        MAG     MAGERR MAGTYPE
+    0  55173.6  PAN-STARRS/PS1.g  26.213299   3.420972      AB
+    1  55191.6  PAN-STARRS/PS1.g  29.423878  60.670588      AB
+    '''
+
+    metadata = {}
+    data_lines = []
+    varlist = []
+    header_found = False
+
+    with open(file_path, 'r') as file:
+        for line in file:
+            stripped_line = line.strip()
+
+            if stripped_line.startswith('#'):
+                continue
+
+            if stripped_line.startswith('NOBS'):
+                header_found = True
+                continue
+
+            if not header_found:
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    value = value.strip()
+                    # Check for +- and extract only the float value before the +-
+                    if '+-' in value:
+                        value = value.split('+-')[0].strip()
+                    # Extract float value if present
+                    float_value = re.findall(r"[-+]?\d*\.\d+|\d+", value)
+                    if float_value:
+                        value = float_value[0]
+                    metadata[key.strip()] = value
+            else:
+                if line.startswith('VARLIST:'):
+                    varlist = line.split()[1:]
+                elif line.startswith('OBS:'):
+                    data_lines.append(line.split()[1:])
+
+    # Create pandas DataFrame from observation data
+    if varlist and data_lines:
+        data_df = pd.DataFrame(data_lines, columns=varlist)
+        # Identify columns that should remain as strings
+        str_columns = ['FLT', 'MAGTYPE']
+        # Convert numeric columns to appropriate data types
+        for col in varlist:
+            if col not in str_columns:
+                data_df[col] = pd.to_numeric(data_df[col], errors='coerce')
+
+    return metadata, data_df
+
 
 def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
                        hostebv, verbose):
@@ -63,7 +145,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     Parameters
     ----------
     filename : string
-        Input file name
+        Input file name. Filetype will be assumed from filename
     dm : float
         Distance modulus
     redshift : float
@@ -92,12 +174,30 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     '''
 
     #if '.json' in filename:
-    #    # FOR ME: phases, mag, errs, filter
-    #else:
-    photometry_data = np.loadtxt(filename, dtype=str, skiprows=2)
-    # Extract key information into seperate arrays
-    phases = np.asarray(photometry_data[:, 0], dtype=float)
-    errs = np.asarray(photometry_data[:, 2], dtype=float)
+    phases = []
+    errs = []
+    observed_filters = []
+    observed_mags = []
+
+    if '.snana' in filename:
+        print('Assuming SNANA format')
+        metadata, data_df = read_snana_file(filename)
+
+        phases = np.array(data_df['MJD'].values, dtype=float)
+        errs = np.array(data_df['MAGERR'].values, dtype=float)
+        observed_filters = np.array(data_df['FLT'].values, dtype=str)
+        observed_mags = np.asarray(data_df['MAG'].values, dtype=float)
+        mag_types = np.asarray(data_df['MAGTYPE'].values, dtype=str)
+
+    else:
+
+        photometry_data = np.loadtxt(filename, dtype=str, skiprows=2)
+        # Extract key information into seperate arrays
+        phases = np.asarray(photometry_data[:, 0], dtype=float)
+        errs = np.asarray(photometry_data[:, 2], dtype=float)
+        observed_filters = np.asarray(photometry_data[:,3], dtype=str)
+        observed_mags = np.asarray(photometry_data[:,1], dtype=float)
+        mag_types = np.asarray(photometry_data[:,-1], dtype=str)
 
     filter_data = importlib_resources.files('extrabol.filter_data') / 'fps.xml'
     index = Table.read(filter_data)
@@ -110,7 +210,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     wv_effs = []
     width_effs = []
     my_filters = []
-    for ufilt in photometry_data[:, 3]:
+    for ufilt in observed_filters:
         gind = np.where(filterIDs == ufilt)[0]
         if len(gind) == 0:
             sys.exit('Cannot find ' + str(ufilt) + ' in SVO.')
@@ -122,12 +222,12 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     # Convert brightness data to flux
     zpts = []
     fluxes = []
-    for datapoint in photometry_data:
-        mag = float(datapoint[1]) - dm + 2.5 * np.log10(1. + redshift)  # cosmological k-correction
-        if datapoint[-1] == 'AB':
+    for i, datapoint in enumerate(observed_mags):
+        mag = float(datapoint) - dm + 2.5 * np.log10(1. + redshift)  # cosmological k-correction
+        if mag_types[i] == 'AB':
             zp = 0.
         else:
-            gind = np.where(filterIDs == datapoint[3])
+            gind = np.where(filterIDs == observed_filters[i])
             zp = 2.5 * np.log10(float(zpts_all[gind[0]][0]) / 3631.)
         zpts.append(zp)
 
@@ -169,7 +269,7 @@ def read_in_photometry(filename, dm, redshift, start, end, snr, mwebv,
     # Set the peak flux to t=0
     peak_i = np.argmax(fluxes)
     if verbose:
-        print('Peak Luminosity occurrs at MJD',phases[peak_i])
+        print('Peak Luminosity occurs at MJD',phases[peak_i])
     phases = (np.asarray(phases) - phases[peak_i]) / (1 + redshift)
 
     # Eliminate any data points outside of specified range
@@ -987,9 +1087,15 @@ def main():
         mean = True
 
     # Read redshift and ebv from the file
-    with open(args.snfile, 'r') as f:
-        redshift = float(f.readline())
-        ebv = float(f.readline())
+    # *** EDIT HERE!!
+    if '.snana' in args.snfile:
+        metadata, data_df = read_snana_file(args.snfile)
+        redshift = float(metadata['REDSHIFT'])
+        ebv = float(metadata['MWEBV'])
+    else:
+        with open(args.snfile, 'r') as f:
+            redshift = float(f.readline())
+            ebv = float(f.readline())
     if args.redshift is not None:
         if args.redshift != redshift and args.verbose:
             print(f'Overriding redshift in file {redshift:f} with {args.redshift:f}')
@@ -1079,7 +1185,7 @@ def main():
         print('Writing output to ' + args.outdir)
     write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
                  bol_lum, bol_err, ufilts, snname, args.outdir, sn_type)
-    print('job completed')
+    print('All done!')
 
 
 if __name__ == "__main__":
