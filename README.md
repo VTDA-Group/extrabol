@@ -101,7 +101,7 @@ An example input file can be found under extrabol/example.
 ## Example Input
 
 ```python
-extrabol ./example/PSc000174_extrabol.dat --verbose -m 1a
+extrabol ./example/SN2010bc.snana.dat --verbose -m 1a
 ```
 
 This example may take a minute the first time you run it as astroquery fetches filter information!
