@@ -1014,7 +1014,10 @@ def write_output(lc, dense_times, dense_lc, Tarr, Terr_arr, Rarr, Rerr_arr,
     return 1
 
 
-def main():
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    
     default_data = importlib_resources.files('extrabol.example') / 'SN2010bc.dat'
     default_data = str(default_data)
     # Define all arguments
@@ -1024,8 +1027,8 @@ def main():
                         type=str, help='Give name of SN file')
     parser.add_argument('-m', '--mean', dest='mean', type=str, default='0',
                         help="Template function for gp.\
-                                Choose \'1a\',\'1bc\', \'2l\', \'2p\', or \
-                                \'0\' for no template")
+                                Choose '1a', '1bc', '2l', '2p', or \
+                                '0' for no template")
     parser.add_argument('-t', '--show_template', dest='template',
                         action='store_true',
                         help="Shows template function on plots")
@@ -1073,7 +1076,7 @@ def main():
                               If not given, the kernel width will be optimized.',
                         type=float, nargs=2)
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # We need to know if an sn template is being used for gp
     sn_type = args.mean
