@@ -1018,7 +1018,7 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
     
-    default_data = importlib_resources.files('extrabol.example') / 'SN2010bc.dat'
+    default_data = importlib_resources.files('extrabol.example') / 'SN2010bc.snana.dat'
     default_data = str(default_data)
     # Define all arguments
     parser = argparse.ArgumentParser(description='extrabol helpers')
