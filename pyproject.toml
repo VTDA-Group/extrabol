@@ -4,11 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name="extrabol"
-version="1.0.3"
+version="1.2.0"
 readme = "README.md"
 authors = [
-    {name = "Ian M. Thornton", email = "iot5037@psu.edu"},
+    {name = "Ian M. Thornton"},
+    {name = "V. Ashley Villar", email = "ashleyvillar@cfa.harvard.edu"},
+    {name = "Sebastian Gomez"},
+    {name = "Griffin Hosseinzadeh"}
 ]
+
 description="Estimate SN bolometric light curves"
 dependencies=[
     "numpy",
@@ -42,7 +46,7 @@ packages=["extrabol",
          ]
 
 [tool.setuptools.package-data]
-"extrabol.example" = ["SN2010bc.dat"]
+"extrabol.example" = ["SN2010bc.snana.dat"]
 "extrabol.filter_data" = ["fps.xml"]
 "extrabol.template_bank" = ["*.npz"]
 
