@@ -1,0 +1,8 @@
+# Include specific files in filter_data
+include extrabol/filter_data/fps.xml
+
+# Include everything under extrabol/filter_data
+recursive-include extrabol/filter_data *
+
+# Include README and LICENSE files
+include README.md LICENSE
